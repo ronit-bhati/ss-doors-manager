@@ -1,0 +1,539 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, FileText, Trash2, Plus } from 'lucide-react';
+import { DoorItemRow } from '../components/DoorItemRow.tsx';
+import { ChaukhatItemRow } from '../components/ChaukhatItemRow.tsx';
+import { OrderSummary } from '../components/OrderSummary.tsx';
+
+interface Client {
+  id: number;
+  name: string;
+  phone: string;
+  address: string;
+}
+
+interface OrderItem {
+  id: number;
+  order_id: number;
+  item_type: 'door_window' | 'chaukhat';
+  label: string;
+  height: number;
+  width: number;
+  quantity: number;
+  calculated_value: number;
+}
+
+interface Order {
+  id: number;
+  client_id: number;
+  order_date: string;
+  status: string;
+  notes: string;
+  door_unit: 'inches' | 'feet';
+  chaukhat_unit: 'inches' | 'feet';
+  door_rate: number;
+  chaukhat_rate: number;
+  doors_subtotal: number;
+  chaukhat_subtotal: number;
+  total_value: number;
+  items: OrderItem[];
+}
+
+export function OrderDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [doorRate, setDoorRate] = useState<number | ''>('');
+  const [chaukhatRate, setChaukhatRate] = useState<number | ''>('');
+  const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState('pending');
+  const [loading, setLoading] = useState(true);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const fetchOrderDetails = useCallback(async () => {
+    if (!id) return;
+    try {
+      const orderId = parseInt(id, 10);
+      const orderData = await window.api.getOrder(orderId);
+      if (!orderData) {
+        navigate('/');
+        return;
+      }
+      setOrder(orderData);
+      setDoorRate(orderData.door_rate);
+      setChaukhatRate(orderData.chaukhat_rate);
+      setNotes(orderData.notes || '');
+      setStatus(orderData.status);
+
+      // Fetch client
+      const clientData = await window.api.getClient(orderData.client_id);
+      setClient(clientData);
+    } catch (err) {
+      console.error('Failed to fetch order details:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchOrderDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Keyboard listeners for Order Detail page
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Esc: Back to client page
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (client) {
+          navigate(`/client/${client.id}`);
+        }
+      }
+
+      // 2. Ctrl+P: Export PDF
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handleExportPDF();
+      }
+
+      // 3. Alt+D: Add Door item inline
+      if (e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        handleAddDoorItem();
+      }
+
+      // 4. Alt+C: Add Chaukhat item inline
+      if (e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        handleAddChaukhatItem();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, order, navigate]);
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!order) return;
+    try {
+      setStatus(newStatus);
+      await window.api.updateOrderStatus(order.id, newStatus);
+      showToast(`Status updated to: ${newStatus.replace('_', ' ')}`);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update status.');
+    }
+  };
+
+  const handleRatesChange = async (dRate: number | '', cRate: number | '') => {
+    if (!order) return;
+    setDoorRate(dRate);
+    setChaukhatRate(cRate);
+    try {
+      await window.api.updateOrderRates(order.id, {
+        doorRate: typeof dRate === 'number' ? dRate : 0,
+        chaukhatRate: typeof cRate === 'number' ? cRate : 0
+      });
+      // Refresh order to get updated totals from DB
+      const updated = await window.api.getOrder(order.id);
+      setOrder(updated);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotesBlur = async () => {
+    if (!order) return;
+    try {
+      await window.api.updateOrderNotes(order.id, notes);
+      showToast('Notes saved.');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddDoorItem = async () => {
+    if (!order) return;
+    try {
+      await window.api.addOrderItem(order.id, {
+        item_type: 'door_window',
+        label: '',
+        height: 0,
+        width: 0,
+        quantity: 1
+      });
+      fetchOrderDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddChaukhatItem = async () => {
+    if (!order) return;
+    try {
+      await window.api.addOrderItem(order.id, {
+        item_type: 'chaukhat',
+        label: '',
+        height: 0,
+        width: 0,
+        quantity: 1
+      });
+      fetchOrderDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateItem = useCallback(async (
+    itemId: string | number,
+    fields: { label?: string; height?: number | ''; width?: number | ''; quantity?: number }
+  ) => {
+    if (!id) return;
+    const orderId = parseInt(id, 10);
+    const idNum = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    try {
+      const cleanFields: { label?: string; height?: number; width?: number; quantity?: number } = {};
+      if (fields.label !== undefined) cleanFields.label = fields.label;
+      if (fields.quantity !== undefined) cleanFields.quantity = fields.quantity;
+      if (typeof fields.height === 'number') cleanFields.height = fields.height;
+      if (typeof fields.width === 'number') cleanFields.width = fields.width;
+
+      await window.api.updateOrderItem(idNum, cleanFields);
+      // Wait, let's refresh to get updated calculations from DB
+      const updated = await window.api.getOrder(orderId);
+      setOrder(updated);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [id]);
+
+  const handleDeleteItem = useCallback(async (itemId: string | number) => {
+    if (!id) return;
+    const idNum = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    const confirmDelete = window.confirm('Remove this item from the order sheet?');
+    if (confirmDelete) {
+      try {
+        await window.api.deleteOrderItem(idNum);
+        setSelectedIds(prev => prev.filter(idVal => idVal !== idNum));
+        fetchOrderDetails();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }, [id, fetchOrderDetails]);
+
+  const handleSelectRow = useCallback((itemId: string | number, checked: boolean) => {
+    const idNum = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    setSelectedIds((prev) => {
+      if (checked) {
+        return prev.includes(idNum) ? prev : [...prev, idNum];
+      } else {
+        return prev.filter((id) => id !== idNum);
+      }
+    });
+  }, []);
+
+  const handleDeleteSelected = async () => {
+    if (!order || selectedIds.length === 0) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete the ${selectedIds.length} selected items?`);
+    if (confirmDelete) {
+      try {
+        for (const itemId of selectedIds) {
+          await window.api.deleteOrderItem(itemId);
+        }
+        setSelectedIds([]);
+        fetchOrderDetails();
+        showToast('Selected items removed.');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete some items.');
+      }
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!order || !client) return;
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete Order #${order.id}? This action cannot be undone.`
+    );
+    if (confirmDelete) {
+      try {
+        await window.api.deleteOrder(order.id);
+        navigate(`/client/${client.id}`);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete order.');
+      }
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!order) return;
+    setPdfGenerating(true);
+    setToastMessage('Generating PDF Invoice...');
+    try {
+      const result = await window.api.exportOrderPDF(order.id);
+      if (result.success) {
+        showToast(`PDF exported successfully: ${result.path}`);
+      } else if (result.error !== 'Cancelled') {
+        showToast(`Failed to export PDF: ${result.error}`);
+      } else {
+        setToastMessage('');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      showToast(`Error: ${(err as Error).message}`);
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage('');
+    }, 4000);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}>
+        Loading order details...
+      </div>
+    );
+  }
+
+  if (!order || !client) return null;
+
+  const doorItems = order.items.filter((i) => i.item_type === 'door_window');
+  const chaukhatItems = order.items.filter((i) => i.item_type === 'chaukhat');
+
+  return (
+    <div className="page-container animate-fade-in">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="toast-msg" style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600 }}>
+          System: {toastMessage}
+        </div>
+      )}
+
+      <div>
+        <Link to={`/client/${client.id}`} style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--color-text-secondary)', textDecoration: 'none', fontWeight: 700, fontSize: '0.825rem', marginBottom: '1rem', fontFamily: 'var(--font-body)', gap: '0.375rem' }}>
+          <ArrowLeft size={16} />
+          <span>Back to Customer Ledger</span>
+          <kbd style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem', marginLeft: '0.25rem' }}>Esc</kbd>
+        </Link>
+        <div className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="page-title-group">
+            <h1 className="page-title" style={{ fontFamily: 'var(--font-body)' }}>Order Sheet #{order.id}</h1>
+            <p className="page-subtitle" style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem' }}>
+              CLIENT: <span style={{ fontWeight: 800, color: 'var(--color-text-primary)' }}>{client.name.toUpperCase()}</span> | DATE: {new Date(order.order_date).toLocaleDateString()} | DOORS: {order.door_unit.toUpperCase()} | CHAUKHATS: {order.chaukhat_unit.toUpperCase()}
+            </p>
+          </div>
+          <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+              <label htmlFor="status-select" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>STATUS:</label>
+              <select
+                id="status-select"
+                className="form-select"
+                style={{ height: '38px', minHeight: 'auto', padding: '0.375rem 2rem 0.375rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 700 }}
+                value={status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+              >
+                <option value="pending">PENDING</option>
+                <option value="in_progress">IN PROGRESS</option>
+                <option value="completed">COMPLETED</option>
+                <option value="delivered">DELIVERED</option>
+              </select>
+            </div>
+            
+            <button className="btn btn-outline" onClick={handleExportPDF} disabled={pdfGenerating} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+              <FileText size={16} />
+              <span>{pdfGenerating ? 'Exporting PDF...' : 'Export PDF Invoice'}</span>
+              <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Ctrl+P</kbd>
+            </button>
+            
+            <button className="btn btn-danger" onClick={handleDeleteOrder} aria-label="Delete order sheet" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+              <Trash2 size={16} />
+              <span>Delete Sheet</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="detail-grid">
+        {/* Left Column: Editable Items Grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+
+          {/* Doors Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Doors & Windows
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedIds.filter(id => doorItems.some(i => i.id === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={handleDeleteSelected}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedIds.filter(id => doorItems.some(i => i.id === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddDoorItem}>
+                  <Plus size={14} />
+                  <span>Add Door/Window</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+D</kbd>
+                </button>
+              </div>
+            </div>
+
+            {doorItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No door or window measurements on this sheet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={doorItems.length > 0 && doorItems.every(i => selectedIds.includes(i.id))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const doorIds = doorItems.map(i => i.id);
+                        if (checked) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, ...doorIds])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => !doorIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all doors"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({order.door_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({order.door_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Area</span>
+                  <span></span>
+                </div>
+                {doorItems.map((item) => (
+                  <DoorItemRow
+                    key={item.id}
+                    item={item}
+                    unit={order.door_unit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedIds.includes(item.id)}
+                    onSelect={handleSelectRow}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chaukhats Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Chaukhats (Frames)
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedIds.filter(id => chaukhatItems.some(i => i.id === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={handleDeleteSelected}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedIds.filter(id => chaukhatItems.some(i => i.id === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddChaukhatItem}>
+                  <Plus size={14} />
+                  <span>Add Chaukhat</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+C</kbd>
+                </button>
+              </div>
+            </div>
+
+            {chaukhatItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No chaukhat frame measurements on this sheet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={chaukhatItems.length > 0 && chaukhatItems.every(i => selectedIds.includes(i.id))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const chaukhatIds = chaukhatItems.map(i => i.id);
+                        if (checked) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, ...chaukhatIds])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => !chaukhatIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all chaukhats"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span style={{ textAlign: 'right' }}>Running Length</span>
+                  <span></span>
+                </div>
+                {chaukhatItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.id}
+                    item={item}
+                    unit={order.chaukhat_unit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedIds.includes(item.id)}
+                    onSelect={handleSelectRow}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notes Section */}
+          <div className="form-group">
+            <label htmlFor="order-notes-textarea" className="form-label" style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Order Notes (Auto-saves on blur)</label>
+            <textarea
+              id="order-notes-textarea"
+              className="form-textarea"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={handleNotesBlur}
+              placeholder="Provide any additional specifications for this order sheet..."
+              maxLength={1000}
+            />
+          </div>
+        </div>
+
+        {/* Right Column: Order totals summary */}
+        <div>
+          <div style={{ position: 'sticky', top: '2rem' }}>
+            <OrderSummary
+              doorsSubtotal={order.doors_subtotal}
+              chaukhatSubtotal={order.chaukhat_subtotal}
+              doorRate={doorRate}
+              chaukhatRate={chaukhatRate}
+              onDoorRateChange={(val) => handleRatesChange(val, chaukhatRate)}
+              onChaukhatRateChange={(val) => handleRatesChange(doorRate, val)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

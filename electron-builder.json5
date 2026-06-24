@@ -1,0 +1,55 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.ssdoors.manager",
+  "asar": true,
+  "asarUnpack": [
+    "**/node_modules/better-sqlite3/**"
+  ],
+  "productName": "SS Doors Manager",
+  "copyright": "Copyright © 2025 SS Doors",
+  "directories": {
+    "buildResources": "build",
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "shortcutName": "SS Doors Manager",
+    "createStartMenuShortcut": true,
+    "createDesktopShortcut": true
+  },
+  "linux": {
+    "icon": "build/icon.png",
+    "target": [
+      "AppImage"
+    ],
+    "category": "Office",
+    "artifactName": "${productName}-Linux-${version}.${ext}"
+  },
+  "mac": {
+    "icon": "build/icon.png",
+    "target": [
+      "dmg"
+    ],
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+  }
+}

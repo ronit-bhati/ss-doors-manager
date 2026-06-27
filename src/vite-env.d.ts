@@ -26,5 +26,8 @@ interface Window {
     backupDatabase: () => Promise<{ success: boolean; path?: string; error?: string }>;
 
     exportOrderPDF: (orderId: number) => Promise<{ success: boolean; path?: string; error?: string }>;
+
+    setZoomFactor: (factor: number) => void;
+    getZoomFactor: () => number;
   }
 }

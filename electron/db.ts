@@ -87,6 +87,7 @@ export function initDatabase(): Database.Database {
   insertSetting.run('default_unit', 'inches');
   insertSetting.run('default_door_rate', '0');
   insertSetting.run('default_chaukhat_rate', '0');
+  insertSetting.run('zoom_factor', '1.0');
 
   return db;
 }

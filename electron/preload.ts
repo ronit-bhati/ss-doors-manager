@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 // Expose the API to the renderer process safely
 contextBridge.exposeInMainWorld('api', {
@@ -39,5 +38,9 @@ contextBridge.exposeInMainWorld('api', {
   backupDatabase: () => ipcRenderer.invoke('backupDatabase'),
 
   // PDF Export
-  exportOrderPDF: (orderId: number) => ipcRenderer.invoke('exportOrderPDF', orderId)
+  exportOrderPDF: (orderId: number) => ipcRenderer.invoke('exportOrderPDF', orderId),
+
+  // Zoom
+  setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
+  getZoomFactor: () => webFrame.getZoomFactor()
 });

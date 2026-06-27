@@ -8,6 +8,7 @@ export function SettingsPage() {
   const [defaultUnit, setDefaultUnit] = useState<'inches' | 'feet'>('inches');
   const [defaultDoorRate, setDefaultDoorRate] = useState<number | ''>('');
   const [defaultChaukhatRate, setDefaultChaukhatRate] = useState<number | ''>('');
+  const [zoomLevel, setZoomLevel] = useState('1.0');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +25,7 @@ export function SettingsPage() {
         setDefaultUnit((data.default_unit as 'inches' | 'feet') || 'inches');
         setDefaultDoorRate(data.default_door_rate ? parseFloat(data.default_door_rate) || 0 : 0);
         setDefaultChaukhatRate(data.default_chaukhat_rate ? parseFloat(data.default_chaukhat_rate) || 0 : 0);
+        setZoomLevel(data.zoom_factor || '1.0');
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -35,6 +37,25 @@ export function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    const handleZoomChangedExternally = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setZoomLevel(customEvent.detail.toFixed(1));
+    };
+    window.addEventListener('zoom-changed', handleZoomChangedExternally);
+    return () => {
+      window.removeEventListener('zoom-changed', handleZoomChangedExternally);
+    };
+  }, []);
+
+  const handleZoomChange = async (val: string) => {
+    setZoomLevel(val);
+    const numericZoom = parseFloat(val);
+    window.api.setZoomFactor(numericZoom);
+    await window.api.setSetting('zoom_factor', val);
+    window.dispatchEvent(new CustomEvent('zoom-changed', { detail: numericZoom }));
+  };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +69,7 @@ export function SettingsPage() {
       await window.api.setSetting('default_unit', defaultUnit);
       await window.api.setSetting('default_door_rate', String(finalDoorRate));
       await window.api.setSetting('default_chaukhat_rate', String(finalChaukhatRate));
+      await window.api.setSetting('zoom_factor', zoomLevel);
       
       setDefaultDoorRate(finalDoorRate);
       setDefaultChaukhatRate(finalChaukhatRate);
@@ -211,6 +233,35 @@ export function SettingsPage() {
             </div>
           </div>
 
+          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+            Appearance Settings
+          </h3>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '-0.75rem' }}>
+            Customize how the application looks. Zoom updates are applied immediately.
+          </p>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="zoom-factor-select" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Interface Zoom Level</label>
+              <select
+                id="zoom-factor-select"
+                className="form-select"
+                value={zoomLevel}
+                onChange={(e) => handleZoomChange(e.target.value)}
+              >
+                <option value="0.8">80%</option>
+                <option value="0.9">90%</option>
+                <option value="1.0">100% (Default)</option>
+                <option value="1.1">110%</option>
+                <option value="1.2">120%</option>
+                <option value="1.3">130%</option>
+                <option value="1.4">140%</option>
+                <option value="1.5">150%</option>
+              </select>
+            </div>
+            <div className="form-group"></div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
             <button type="submit" className="btn btn-primary" disabled={saving} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
               <Save size={16} />
@@ -295,6 +346,18 @@ export function SettingsPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Add Door / Chaukhat:</span>
                 <kbd>Alt + D / C</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Zoom In:</span>
+                <kbd>Ctrl + +</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Zoom Out:</span>
+                <kbd>Ctrl + -</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Reset Zoom:</span>
+                <kbd>Ctrl + 0</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.25rem', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Cancel / Back:</span>

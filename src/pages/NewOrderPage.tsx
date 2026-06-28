@@ -14,11 +14,12 @@ interface Client {
 
 interface ItemState {
   tempId: string;
-  item_type: 'door_window' | 'chaukhat';
+  item_type: 'door_window' | 'chaukhat' | 'railing' | 'fix_gola' | 'moulding';
   label: string;
   height: number | '';
   width: number | '';
   quantity: number;
+  rate: number | '';
 }
 
 export function NewOrderPage() {
@@ -28,9 +29,16 @@ export function NewOrderPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [doorUnit, setDoorUnit] = useState<'inches' | 'feet'>('inches');
   const [chaukhatUnit, setChaukhatUnit] = useState<'inches' | 'feet'>('inches');
+  const [railingUnit, setRailingUnit] = useState<'inches' | 'feet'>('inches');
+  const [fixGolaUnit, setFixGolaUnit] = useState<'inches' | 'feet'>('inches');
+  const [mouldingUnit, setMouldingUnit] = useState<'inches' | 'feet'>('inches');
   const [items, setItems] = useState<ItemState[]>([]);
   const [doorRate, setDoorRate] = useState<number | ''>('');
   const [chaukhatRate, setChaukhatRate] = useState<number | ''>('');
+  const [railingRate, setRailingRate] = useState<number | ''>('');
+  const [fixGolaRate, setFixGolaRate] = useState<number | ''>('');
+  const [mouldingRate, setMouldingRate] = useState<number | ''>('');
+  const [woodType, setWoodType] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -49,14 +57,18 @@ export function NewOrderPage() {
         }
         setClient(clientData);
 
-        // Fetch settings for defaults
         const settings = await window.api.getAllSettings();
         if (settings) {
-          const defUnit = (settings.default_unit as 'inches' | 'feet') || 'inches';
-          setDoorUnit(defUnit);
-          setChaukhatUnit(defUnit);
+          setDoorUnit((settings.default_door_unit as 'inches' | 'feet') || 'inches');
+          setChaukhatUnit((settings.default_chaukhat_unit as 'inches' | 'feet') || 'inches');
+          setRailingUnit((settings.default_railing_unit as 'inches' | 'feet') || 'inches');
+          setFixGolaUnit((settings.default_fix_gola_unit as 'inches' | 'feet') || 'inches');
+          setMouldingUnit((settings.default_moulding_unit as 'inches' | 'feet') || 'inches');
           setDoorRate(settings.default_door_rate ? parseFloat(settings.default_door_rate) || 0 : 0);
           setChaukhatRate(settings.default_chaukhat_rate ? parseFloat(settings.default_chaukhat_rate) || 0 : 0);
+          setRailingRate(settings.default_railing_rate ? parseFloat(settings.default_railing_rate) || 0 : 0);
+          setFixGolaRate(settings.default_fix_gola_rate ? parseFloat(settings.default_fix_gola_rate) || 0 : 0);
+          setMouldingRate(settings.default_moulding_rate ? parseFloat(settings.default_moulding_rate) || 0 : 0);
         }
       } catch (err) {
         console.error('Failed to initialize new order page:', err);
@@ -98,12 +110,30 @@ export function NewOrderPage() {
         e.preventDefault();
         addChaukhatRow();
       }
+
+      // 5. Alt+R: Add Railing Row
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        addRailingRow();
+      }
+
+      // 6. Alt+G: Add Fix Gola Row
+      if (e.altKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        addFixGolaRow();
+      }
+
+      // 7. Alt+M: Add Moulding Row
+      if (e.altKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        addMouldingRow();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, items, doorRate, chaukhatRate, notes, doorUnit, chaukhatUnit, navigate]);
+  }, [client, items, doorRate, chaukhatRate, railingRate, fixGolaRate, mouldingRate, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, navigate]);
 
   const addDoorRow = () => {
     setItems((prev) => [
@@ -114,7 +144,8 @@ export function NewOrderPage() {
         label: '',
         height: '',
         width: '',
-        quantity: 1
+        quantity: 1,
+        rate: doorRate || 0
       }
     ]);
   };
@@ -128,7 +159,53 @@ export function NewOrderPage() {
         label: '',
         height: '',
         width: '',
-        quantity: 1
+        quantity: 1,
+        rate: chaukhatRate || 0
+      }
+    ]);
+  };
+
+  const addRailingRow = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        tempId: Math.random().toString(),
+        item_type: 'railing',
+        label: '',
+        height: '',
+        width: '',
+        quantity: 1,
+        rate: railingRate || 0
+      }
+    ]);
+  };
+
+  const addFixGolaRow = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        tempId: Math.random().toString(),
+        item_type: 'fix_gola',
+        label: '',
+        height: '',
+        width: '',
+        quantity: 1,
+        rate: fixGolaRate || 0
+      }
+    ]);
+  };
+
+  const addMouldingRow = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        tempId: Math.random().toString(),
+        item_type: 'moulding',
+        label: '',
+        height: '',
+        width: '',
+        quantity: 1,
+        rate: mouldingRate || 0
       }
     ]);
   };
@@ -155,7 +232,7 @@ export function NewOrderPage() {
     });
   }, []);
 
-  const handleDeleteSelected = (type: 'door_window' | 'chaukhat') => {
+  const handleDeleteSelected = (type: 'door_window' | 'chaukhat' | 'railing' | 'fix_gola' | 'moulding') => {
     const idsToDelete = selectedTempIds.filter(tempId => 
       items.some(i => i.tempId === tempId && i.item_type === type)
     );
@@ -171,6 +248,9 @@ export function NewOrderPage() {
   // Calculations for live previews
   const doorItems = items.filter((i) => i.item_type === 'door_window');
   const chaukhatItems = items.filter((i) => i.item_type === 'chaukhat');
+  const railingItems = items.filter((i) => i.item_type === 'railing');
+  const fixGolaItems = items.filter((i) => i.item_type === 'fix_gola');
+  const mouldingItems = items.filter((i) => i.item_type === 'moulding');
 
   const doorsSubtotal = useMemo(() => {
     return items
@@ -191,6 +271,91 @@ export function NewOrderPage() {
         return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: chaukhatUnit });
       }, 0);
   }, [items, chaukhatUnit]);
+
+  const railingsSubtotal = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'railing')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: railingUnit });
+      }, 0);
+  }, [items, railingUnit]);
+
+  const fixGolaSubtotal = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'fix_gola')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: fixGolaUnit });
+      }, 0);
+  }, [items, fixGolaUnit]);
+
+  const mouldingSubtotal = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'moulding')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: mouldingUnit });
+      }, 0);
+  }, [items, mouldingUnit]);
+
+  const doorsAmount = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'door_window')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        const r = typeof item.rate === 'number' ? item.rate : 0;
+        return sum + calculateDoorItemValue({ height: h, width: w, quantity: item.quantity, unit: doorUnit }) * r;
+      }, 0);
+  }, [items, doorUnit]);
+
+  const chaukhatAmount = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'chaukhat')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        const r = typeof item.rate === 'number' ? item.rate : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: chaukhatUnit }) * r;
+      }, 0);
+  }, [items, chaukhatUnit]);
+
+  const railingsAmount = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'railing')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        const r = typeof item.rate === 'number' ? item.rate : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: railingUnit }) * r;
+      }, 0);
+  }, [items, railingUnit]);
+
+  const fixGolaAmount = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'fix_gola')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        const r = typeof item.rate === 'number' ? item.rate : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: fixGolaUnit }) * r;
+      }, 0);
+  }, [items, fixGolaUnit]);
+
+  const mouldingAmount = useMemo(() => {
+    return items
+      .filter((i) => i.item_type === 'moulding')
+      .reduce((sum, item) => {
+        const h = typeof item.height === 'number' ? item.height : 0;
+        const w = typeof item.width === 'number' ? item.width : 0;
+        const r = typeof item.rate === 'number' ? item.rate : 0;
+        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: mouldingUnit }) * r;
+      }, 0);
+  }, [items, mouldingUnit]);
 
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +382,11 @@ export function NewOrderPage() {
         clientId: client.id,
         notes: notes,
         doorUnit,
-        chaukhatUnit
+        chaukhatUnit,
+        railingUnit,
+        fixGolaUnit,
+        mouldingUnit,
+        woodType
       });
       const orderId = orderResult.id;
 
@@ -228,15 +397,10 @@ export function NewOrderPage() {
           label: item.label,
           height: item.height as number,
           width: item.width as number,
-          quantity: item.quantity
+          quantity: item.quantity,
+          rate: typeof item.rate === 'number' ? item.rate : 0
         });
       }
-
-      // 3. Update rates (which forces subtotal and total recalculations)
-      await window.api.updateOrderRates(orderId, {
-        doorRate: typeof doorRate === 'number' ? doorRate : 0,
-        chaukhatRate: typeof chaukhatRate === 'number' ? chaukhatRate : 0
-      });
 
       // 4. Redirect to order details
       navigate(`/order/${orderId}`);
@@ -279,46 +443,110 @@ export function NewOrderPage() {
         </div>
       </div>
 
-      <div className="card-el" style={{ gap: '1.25rem' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>Order Settings</h3>
-        <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '1rem' }}>
-            <span className="form-label" style={{ padding: 0, fontWeight: 700, fontFamily: 'var(--font-body)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Doors & Windows Unit:</span>
-            <div className="segmented-control">
-              <button
-                type="button"
-                className={`segment-btn ${doorUnit === 'inches' ? 'active' : ''}`}
-                onClick={() => setDoorUnit('inches')}
-              >
-                Inches
-              </button>
-              <button
-                type="button"
-                className={`segment-btn ${doorUnit === 'feet' ? 'active' : ''}`}
-                onClick={() => setDoorUnit('feet')}
-              >
-                Feet
-              </button>
+      {/* Compact Order Settings Bar */}
+      <div className="card" style={{ padding: '0.6rem 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--color-bg-surface)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', width: '100%' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>Units:</span>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', flexGrow: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Doors:</span>
+              <div className="segmented-control" style={{ scale: '0.85', transformOrigin: 'left center' }}>
+                <button
+                  type="button"
+                  className={`segment-btn ${doorUnit === 'inches' ? 'active' : ''}`}
+                  onClick={() => setDoorUnit('inches')}
+                >
+                  In
+                </button>
+                <button
+                  type="button"
+                  className={`segment-btn ${doorUnit === 'feet' ? 'active' : ''}`}
+                  onClick={() => setDoorUnit('feet')}
+                >
+                  Ft
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '1rem' }}>
-            <span className="form-label" style={{ padding: 0, fontWeight: 700, fontFamily: 'var(--font-body)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Chaukhats Unit:</span>
-            <div className="segmented-control">
-              <button
-                type="button"
-                className={`segment-btn ${chaukhatUnit === 'inches' ? 'active' : ''}`}
-                onClick={() => setChaukhatUnit('inches')}
-              >
-                Inches
-              </button>
-              <button
-                type="button"
-                className={`segment-btn ${chaukhatUnit === 'feet' ? 'active' : ''}`}
-                onClick={() => setChaukhatUnit('feet')}
-              >
-                Feet
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Chaukhats:</span>
+              <div className="segmented-control" style={{ scale: '0.85', transformOrigin: 'left center' }}>
+                <button
+                  type="button"
+                  className={`segment-btn ${chaukhatUnit === 'inches' ? 'active' : ''}`}
+                  onClick={() => setChaukhatUnit('inches')}
+                >
+                  In
+                </button>
+                <button
+                  type="button"
+                  className={`segment-btn ${chaukhatUnit === 'feet' ? 'active' : ''}`}
+                  onClick={() => setChaukhatUnit('feet')}
+                >
+                  Ft
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Railings:</span>
+              <div className="segmented-control" style={{ scale: '0.85', transformOrigin: 'left center' }}>
+                <button
+                  type="button"
+                  className={`segment-btn ${railingUnit === 'inches' ? 'active' : ''}`}
+                  onClick={() => setRailingUnit('inches')}
+                >
+                  In
+                </button>
+                <button
+                  type="button"
+                  className={`segment-btn ${railingUnit === 'feet' ? 'active' : ''}`}
+                  onClick={() => setRailingUnit('feet')}
+                >
+                  Ft
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Fix Gola:</span>
+              <div className="segmented-control" style={{ scale: '0.85', transformOrigin: 'left center' }}>
+                <button
+                  type="button"
+                  className={`segment-btn ${fixGolaUnit === 'inches' ? 'active' : ''}`}
+                  onClick={() => setFixGolaUnit('inches')}
+                >
+                  In
+                </button>
+                <button
+                  type="button"
+                  className={`segment-btn ${fixGolaUnit === 'feet' ? 'active' : ''}`}
+                  onClick={() => setFixGolaUnit('feet')}
+                >
+                  Ft
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Moulding:</span>
+              <div className="segmented-control" style={{ scale: '0.85', transformOrigin: 'left center' }}>
+                <button
+                  type="button"
+                  className={`segment-btn ${mouldingUnit === 'inches' ? 'active' : ''}`}
+                  onClick={() => setMouldingUnit('inches')}
+                >
+                  In
+                </button>
+                <button
+                  type="button"
+                  className={`segment-btn ${mouldingUnit === 'feet' ? 'active' : ''}`}
+                  onClick={() => setMouldingUnit('feet')}
+                >
+                  Ft
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -355,7 +583,7 @@ export function NewOrderPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -377,7 +605,8 @@ export function NewOrderPage() {
                   <span>Height ({doorUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Width ({doorUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
-                  <span style={{ textAlign: 'right' }}>Calculated Area</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Area & Cost</span>
                   <span></span>
                 </div>
                 {doorItems.map((item) => (
@@ -422,7 +651,7 @@ export function NewOrderPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -444,7 +673,8 @@ export function NewOrderPage() {
                   <span>Height ({chaukhatUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Width ({chaukhatUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
-                  <span style={{ textAlign: 'right' }}>Running Length</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
                 {chaukhatItems.map((item) => (
@@ -462,31 +692,267 @@ export function NewOrderPage() {
             )}
           </div>
 
-          {/* Notes Section */}
-          <div className="form-group">
-            <label htmlFor="order-notes" className="form-label" style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Order Notes (e.g. wood quality, specifications)</label>
-            <textarea
-              id="order-notes"
-              className="form-textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Provide any additional specifications for this order sheet..."
-              maxLength={1000}
-            />
+          {/* Railings Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Railings
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedTempIds.filter(id => railingItems.some(i => i.tempId === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('railing')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedTempIds.filter(id => railingItems.some(i => i.tempId === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={addRailingRow}>
+                  <Plus size={14} />
+                  <span>Add Railing</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+R</kbd>
+                </button>
+              </div>
+            </div>
+
+            {railingItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No railing measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={railingItems.length > 0 && railingItems.every(i => selectedTempIds.includes(i.tempId))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const railingIds = railingItems.map(i => i.tempId);
+                        if (checked) {
+                          setSelectedTempIds(prev => Array.from(new Set([...prev, ...railingIds])));
+                        } else {
+                          setSelectedTempIds(prev => prev.filter(id => !railingIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all railings"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({railingUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({railingUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {railingItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.tempId}
+                    item={item}
+                    unit={railingUnit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedTempIds.includes(item.tempId)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Fix Gola Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Fix Gola
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedTempIds.filter(id => fixGolaItems.some(i => i.tempId === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('fix_gola')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedTempIds.filter(id => fixGolaItems.some(i => i.tempId === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={addFixGolaRow}>
+                  <Plus size={14} />
+                  <span>Add Fix Gola</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+G</kbd>
+                </button>
+              </div>
+            </div>
+
+            {fixGolaItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No fix gola measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={fixGolaItems.length > 0 && fixGolaItems.every(i => selectedTempIds.includes(i.tempId))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const fixGolaIds = fixGolaItems.map(i => i.tempId);
+                        if (checked) {
+                          setSelectedTempIds(prev => Array.from(new Set([...prev, ...fixGolaIds])));
+                        } else {
+                          setSelectedTempIds(prev => prev.filter(id => !fixGolaIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all fix golas"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({fixGolaUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({fixGolaUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {fixGolaItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.tempId}
+                    item={item}
+                    unit={fixGolaUnit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedTempIds.includes(item.tempId)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Moulding Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Moulding
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedTempIds.filter(id => mouldingItems.some(i => i.tempId === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('moulding')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedTempIds.filter(id => mouldingItems.some(i => i.tempId === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={addMouldingRow}>
+                  <Plus size={14} />
+                  <span>Add Moulding</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+M</kbd>
+                </button>
+              </div>
+            </div>
+
+            {mouldingItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No moulding measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={mouldingItems.length > 0 && mouldingItems.every(i => selectedTempIds.includes(i.tempId))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const mouldingIds = mouldingItems.map(i => i.tempId);
+                        if (checked) {
+                          setSelectedTempIds(prev => Array.from(new Set([...prev, ...mouldingIds])));
+                        } else {
+                          setSelectedTempIds(prev => prev.filter(id => !mouldingIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all mouldings"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({mouldingUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({mouldingUnit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {mouldingItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.tempId}
+                    item={item}
+                    unit={mouldingUnit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedTempIds.includes(item.tempId)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
 
         {/* Right column: Totals Summary */}
         <div>
-          <div style={{ position: 'sticky', top: '2rem' }}>
+          <div style={{ position: 'sticky', top: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Unified Side Panel Order Info */}
+            <div className="card" style={{ padding: '1.25rem', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--color-bg-surface)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.375rem', margin: 0 }}>
+                Order Info
+              </h3>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="order-wood-type" className="form-label" style={{ fontWeight: 800, fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
+                  Wood Type
+                </label>
+                <input
+                  id="order-wood-type"
+                  type="text"
+                  className="form-input"
+                  style={{ textTransform: 'uppercase', height: '36px', minHeight: 'auto' }}
+                  value={woodType}
+                  onChange={(e) => setWoodType(e.target.value)}
+                  placeholder="e.g. Teak Wood"
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="order-notes" className="form-label" style={{ fontWeight: 800, fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
+                  Order Notes
+                </label>
+                <textarea
+                  id="order-notes"
+                  className="form-textarea"
+                  style={{ minHeight: '100px' }}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Provide any additional specifications..."
+                  maxLength={1000}
+                />
+              </div>
+            </div>
+
             <OrderSummary
               doorsSubtotal={doorsSubtotal}
               chaukhatSubtotal={chaukhatSubtotal}
-              doorRate={doorRate}
-              chaukhatRate={chaukhatRate}
-              onDoorRateChange={setDoorRate}
-              onChaukhatRateChange={setChaukhatRate}
+              railingsSubtotal={railingsSubtotal}
+              fixGolaSubtotal={fixGolaSubtotal}
+              mouldingSubtotal={mouldingSubtotal}
+              doorsAmount={doorsAmount}
+              chaukhatAmount={chaukhatAmount}
+              railingsAmount={railingsAmount}
+              fixGolaAmount={fixGolaAmount}
+              mouldingAmount={mouldingAmount}
             />
           </div>
         </div>

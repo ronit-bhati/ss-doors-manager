@@ -15,14 +15,20 @@ interface Order {
   id: number;
   client_id: number;
   order_date: string;
-  status: string;
+  order_status: string;
+  payment_status: string;
+  advance_paid: number;
   notes: string;
   door_unit: string;
   chaukhat_unit: string;
-  door_rate: number;
-  chaukhat_rate: number;
+  railing_unit: string;
+  fix_gola_unit: string;
+  moulding_unit: string;
   doors_subtotal: number;
   chaukhat_subtotal: number;
+  railings_subtotal: number;
+  fix_gola_subtotal: number;
+  moulding_subtotal: number;
   total_value: number;
 }
 
@@ -38,6 +44,9 @@ export function ClientsPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>('all');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all');
 
   // Form Modal controls
   const [isEditing, setIsEditing] = useState(false);
@@ -160,12 +169,25 @@ export function ClientsPage() {
 
   const filteredClients = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return clients.filter(
-      (c) =>
+    return clients.filter((c: any) => {
+      const matchesSearch =
         c.name.toLowerCase().includes(term) ||
-        (c.phone && c.phone.includes(searchTerm))
-    );
-  }, [clients, searchTerm]);
+        (c.phone && c.phone.includes(searchTerm));
+      if (!matchesSearch) return false;
+
+      if (selectedOrderStatus !== 'all') {
+        const statuses = c.order_statuses ? c.order_statuses.split(',') : [];
+        if (!statuses.includes(selectedOrderStatus)) return false;
+      }
+
+      if (selectedPaymentStatus !== 'all') {
+        const statuses = c.payment_statuses ? c.payment_statuses.split(',') : [];
+        if (!statuses.includes(selectedPaymentStatus)) return false;
+      }
+
+      return true;
+    });
+  }, [clients, searchTerm, selectedOrderStatus, selectedPaymentStatus]);
 
   return (
     <div className="split-pane">
@@ -180,7 +202,7 @@ export function ClientsPage() {
               <kbd style={{ marginLeft: '0.375rem', border: '1px solid rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+N</kbd>
             </button>
           </div>
-          <div className="pane-left-search">
+          <div className="pane-left-search" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
             <input
               type="text"
               placeholder="Filter by name or phone..."
@@ -188,6 +210,46 @@ export function ClientsPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            <div style={{ display: 'flex', gap: '0.4rem', width: '100%', alignItems: 'center' }}>
+              <select
+                className="form-select"
+                style={{ flex: 1, minWidth: 0, fontSize: '0.7rem', padding: '0.25rem 0.4rem', height: '30px', minHeight: 'auto', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-surface)', borderRadius: 'var(--border-radius)', textOverflow: 'ellipsis' }}
+                value={selectedOrderStatus}
+                onChange={(e) => setSelectedOrderStatus(e.target.value)}
+                aria-label="Filter by order status"
+              >
+                <option value="all">ALL ORDERS</option>
+                <option value="pending">PENDING</option>
+                <option value="in_progress">IN PROGRESS</option>
+                <option value="completed">COMPLETED</option>
+                <option value="delivered">DELIVERED</option>
+              </select>
+              <select
+                className="form-select"
+                style={{ flex: 1, minWidth: 0, fontSize: '0.7rem', padding: '0.25rem 0.4rem', height: '30px', minHeight: 'auto', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-surface)', borderRadius: 'var(--border-radius)', textOverflow: 'ellipsis' }}
+                value={selectedPaymentStatus}
+                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+                aria-label="Filter by payment status"
+              >
+                <option value="all">ALL PAYMENTS</option>
+                <option value="pending">PENDING</option>
+                <option value="paid">PAID</option>
+              </select>
+            </div>
+            {(searchTerm !== '' || selectedOrderStatus !== 'all' || selectedPaymentStatus !== 'all') && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ width: '100%', height: '28px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginTop: '0.125rem' }}
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedOrderStatus('all');
+                  setSelectedPaymentStatus('all');
+                }}
+              >
+                <span>Clear Filters</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -321,10 +383,9 @@ export function ClientsPage() {
                       <tr>
                         <th>Order ID</th>
                         <th>Order Date</th>
-                        <th>Status</th>
+                        <th>Order Status</th>
+                        <th>Payment Status</th>
                         <th>Unit</th>
-                        <th style={{ textAlign: 'right' }}>Doors Area</th>
-                        <th style={{ textAlign: 'right' }}>Chaukhat Length</th>
                         <th style={{ textAlign: 'right' }}>Grand Total</th>
                         <th style={{ textAlign: 'center' }}>Actions</th>
                       </tr>
@@ -335,19 +396,18 @@ export function ClientsPage() {
                           <td style={{ fontWeight: 700 }}>#{o.id}</td>
                           <td>{new Date(o.order_date).toLocaleDateString()}</td>
                           <td>
-                            <span className={`badge badge-${o.status}`}>
-                              {o.status.replace('_', ' ')}
+                            <span className={`badge badge-${o.order_status}`}>
+                              {o.order_status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge badge-${o.payment_status}`}>
+                              {o.payment_status.replace('_', ' ')}
                             </span>
                           </td>
                           <td style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.3 }}>
                             <div>D: <span style={{ textTransform: 'capitalize' }}>{o.door_unit}</span></div>
                             <div>C: <span style={{ textTransform: 'capitalize' }}>{o.chaukhat_unit}</span></div>
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                            {o.doors_subtotal.toFixed(2)} sqft
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 500 }}>
-                            {o.chaukhat_subtotal.toFixed(2)} ft
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-emerald)' }}>
                             ₹{o.total_value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

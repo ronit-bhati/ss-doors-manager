@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, Trash2, Plus } from 'lucide-react';
 import { DoorItemRow } from '../components/DoorItemRow.tsx';
@@ -15,11 +15,12 @@ interface Client {
 interface OrderItem {
   id: number;
   order_id: number;
-  item_type: 'door_window' | 'chaukhat';
+  item_type: 'door_window' | 'chaukhat' | 'railing' | 'fix_gola' | 'moulding';
   label: string;
   height: number;
   width: number;
   quantity: number;
+  rate: number;
   calculated_value: number;
 }
 
@@ -27,14 +28,26 @@ interface Order {
   id: number;
   client_id: number;
   order_date: string;
-  status: string;
+  order_status: string;
+  payment_status: string;
+  advance_paid: number;
   notes: string;
   door_unit: 'inches' | 'feet';
   chaukhat_unit: 'inches' | 'feet';
-  door_rate: number;
-  chaukhat_rate: number;
+  railing_unit: 'inches' | 'feet';
+  fix_gola_unit: 'inches' | 'feet';
+  moulding_unit: 'inches' | 'feet';
+  wood_type: string;
   doors_subtotal: number;
   chaukhat_subtotal: number;
+  railings_subtotal: number;
+  fix_gola_subtotal: number;
+  moulding_subtotal: number;
+  doors_amount: number;
+  chaukhat_amount: number;
+  railings_amount: number;
+  fix_gola_amount: number;
+  moulding_amount: number;
   total_value: number;
   items: OrderItem[];
 }
@@ -42,13 +55,15 @@ interface Order {
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const previewDialogRef = useRef<HTMLDialogElement>(null);
 
   const [order, setOrder] = useState<Order | null>(null);
   const [client, setClient] = useState<Client | null>(null);
-  const [doorRate, setDoorRate] = useState<number | ''>('');
-  const [chaukhatRate, setChaukhatRate] = useState<number | ''>('');
+  const [woodType, setWoodType] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('pending');
+  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [advancePaid, setAdvancePaid] = useState<number | ''>(0);
   const [loading, setLoading] = useState(true);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -64,10 +79,11 @@ export function OrderDetailPage() {
         return;
       }
       setOrder(orderData);
-      setDoorRate(orderData.door_rate);
-      setChaukhatRate(orderData.chaukhat_rate);
       setNotes(orderData.notes || '');
-      setStatus(orderData.status);
+      setWoodType(orderData.wood_type || '');
+      setStatus(orderData.order_status);
+      setPaymentStatus(orderData.payment_status);
+      setAdvancePaid(orderData.advance_paid ?? 0);
 
       // Fetch client
       const clientData = await window.api.getClient(orderData.client_id);
@@ -131,20 +147,47 @@ export function OrderDetailPage() {
     }
   };
 
-  const handleRatesChange = async (dRate: number | '', cRate: number | '') => {
+  const handlePaymentStatusChange = async (newPayStatus: string) => {
     if (!order) return;
-    setDoorRate(dRate);
-    setChaukhatRate(cRate);
+    setPaymentStatus(newPayStatus);
+    const finalAdvance = typeof advancePaid === 'number' ? advancePaid : 0;
     try {
-      await window.api.updateOrderRates(order.id, {
-        doorRate: typeof dRate === 'number' ? dRate : 0,
-        chaukhatRate: typeof cRate === 'number' ? cRate : 0
+      await window.api.updateOrderPaymentDetails(order.id, {
+        paymentStatus: newPayStatus,
+        advancePaid: finalAdvance
       });
-      // Refresh order to get updated totals from DB
       const updated = await window.api.getOrder(order.id);
       setOrder(updated);
+      showToast(`Payment status: ${newPayStatus.toUpperCase()}`);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAdvancePaidBlur = async () => {
+    if (!order) return;
+    const finalAdvance = typeof advancePaid === 'number' ? advancePaid : 0;
+    try {
+      await window.api.updateOrderPaymentDetails(order.id, {
+        paymentStatus,
+        advancePaid: finalAdvance
+      });
+      const updated = await window.api.getOrder(order.id);
+      setOrder(updated);
+      showToast('Advance paid updated.');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleWoodTypeBlur = async () => {
+    if (!order) return;
+    try {
+      await window.api.updateOrderWoodType(order.id, woodType);
+      showToast('Wood type saved.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save wood type.');
     }
   };
 
@@ -161,12 +204,15 @@ export function OrderDetailPage() {
   const handleAddDoorItem = async () => {
     if (!order) return;
     try {
+      const settings = await window.api.getAllSettings();
+      const defRate = settings?.default_door_rate ? parseFloat(settings.default_door_rate) || 0 : 0;
       await window.api.addOrderItem(order.id, {
         item_type: 'door_window',
         label: '',
         height: 0,
         width: 0,
-        quantity: 1
+        quantity: 1,
+        rate: defRate
       });
       fetchOrderDetails();
     } catch (err) {
@@ -177,12 +223,72 @@ export function OrderDetailPage() {
   const handleAddChaukhatItem = async () => {
     if (!order) return;
     try {
+      const settings = await window.api.getAllSettings();
+      const defRate = settings?.default_chaukhat_rate ? parseFloat(settings.default_chaukhat_rate) || 0 : 0;
       await window.api.addOrderItem(order.id, {
         item_type: 'chaukhat',
         label: '',
         height: 0,
         width: 0,
-        quantity: 1
+        quantity: 1,
+        rate: defRate
+      });
+      fetchOrderDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddRailingItem = async () => {
+    if (!order) return;
+    try {
+      const settings = await window.api.getAllSettings();
+      const defRate = settings?.default_railing_rate ? parseFloat(settings.default_railing_rate) || 0 : 0;
+      await window.api.addOrderItem(order.id, {
+        item_type: 'railing',
+        label: '',
+        height: 0,
+        width: 0,
+        quantity: 1,
+        rate: defRate
+      });
+      fetchOrderDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddFixGolaItem = async () => {
+    if (!order) return;
+    try {
+      const settings = await window.api.getAllSettings();
+      const defRate = settings?.default_fix_gola_rate ? parseFloat(settings.default_fix_gola_rate) || 0 : 0;
+      await window.api.addOrderItem(order.id, {
+        item_type: 'fix_gola',
+        label: '',
+        height: 0,
+        width: 0,
+        quantity: 1,
+        rate: defRate
+      });
+      fetchOrderDetails();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddMouldingItem = async () => {
+    if (!order) return;
+    try {
+      const settings = await window.api.getAllSettings();
+      const defRate = settings?.default_moulding_rate ? parseFloat(settings.default_moulding_rate) || 0 : 0;
+      await window.api.addOrderItem(order.id, {
+        item_type: 'moulding',
+        label: '',
+        height: 0,
+        width: 0,
+        quantity: 1,
+        rate: defRate
       });
       fetchOrderDetails();
     } catch (err) {
@@ -192,17 +298,20 @@ export function OrderDetailPage() {
 
   const handleUpdateItem = useCallback(async (
     itemId: string | number,
-    fields: { label?: string; height?: number | ''; width?: number | ''; quantity?: number }
+    fields: { label?: string; height?: number | ''; width?: number | ''; quantity?: number; rate?: number | '' }
   ) => {
     if (!id) return;
     const orderId = parseInt(id, 10);
     const idNum = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
     try {
-      const cleanFields: { label?: string; height?: number; width?: number; quantity?: number } = {};
+      const cleanFields: { label?: string; height?: number; width?: number; quantity?: number; rate?: number } = {};
       if (fields.label !== undefined) cleanFields.label = fields.label;
       if (fields.quantity !== undefined) cleanFields.quantity = fields.quantity;
       if (typeof fields.height === 'number') cleanFields.height = fields.height;
       if (typeof fields.width === 'number') cleanFields.width = fields.width;
+      if (fields.rate !== undefined) {
+        cleanFields.rate = typeof fields.rate === 'number' ? fields.rate : 0;
+      }
 
       await window.api.updateOrderItem(idNum, cleanFields);
       // Wait, let's refresh to get updated calculations from DB
@@ -212,6 +321,27 @@ export function OrderDetailPage() {
       console.error(err);
     }
   }, [id]);
+
+  const handleDeleteSelected = async (type: 'door_window' | 'chaukhat' | 'railing' | 'fix_gola' | 'moulding') => {
+    const idsToDelete = selectedIds.filter(idNum => {
+      const item = order?.items.find(i => i.id === idNum);
+      return item && item.item_type === type;
+    });
+    if (idsToDelete.length === 0) return;
+
+    const confirmDelete = window.confirm(`Remove the ${idsToDelete.length} selected items?`);
+    if (confirmDelete) {
+      try {
+        for (const idNum of idsToDelete) {
+          await window.api.deleteOrderItem(idNum);
+        }
+        setSelectedIds(prev => prev.filter(idNum => !idsToDelete.includes(idNum)));
+        fetchOrderDetails();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
 
   const handleDeleteItem = useCallback(async (itemId: string | number) => {
     if (!id) return;
@@ -239,24 +369,6 @@ export function OrderDetailPage() {
     });
   }, []);
 
-  const handleDeleteSelected = async () => {
-    if (!order || selectedIds.length === 0) return;
-    const confirmDelete = window.confirm(`Are you sure you want to delete the ${selectedIds.length} selected items?`);
-    if (confirmDelete) {
-      try {
-        for (const itemId of selectedIds) {
-          await window.api.deleteOrderItem(itemId);
-        }
-        setSelectedIds([]);
-        fetchOrderDetails();
-        showToast('Selected items removed.');
-      } catch (err) {
-        console.error(err);
-        alert('Failed to delete some items.');
-      }
-    }
-  };
-
   const handleDeleteOrder = async () => {
     if (!order || !client) return;
     const confirmDelete = window.confirm(
@@ -273,25 +385,8 @@ export function OrderDetailPage() {
     }
   };
 
-  const handleExportPDF = async () => {
-    if (!order) return;
-    setPdfGenerating(true);
-    setToastMessage('Generating PDF Invoice...');
-    try {
-      const result = await window.api.exportOrderPDF(order.id);
-      if (result.success) {
-        showToast(`PDF exported successfully: ${result.path}`);
-      } else if (result.error !== 'Cancelled') {
-        showToast(`Failed to export PDF: ${result.error}`);
-      } else {
-        setToastMessage('');
-      }
-    } catch (err: unknown) {
-      console.error(err);
-      showToast(`Error: ${(err as Error).message}`);
-    } finally {
-      setPdfGenerating(false);
-    }
+  const handleExportPDF = () => {
+    previewDialogRef.current?.showModal();
   };
 
   const showToast = (msg: string) => {
@@ -313,6 +408,9 @@ export function OrderDetailPage() {
 
   const doorItems = order.items.filter((i) => i.item_type === 'door_window');
   const chaukhatItems = order.items.filter((i) => i.item_type === 'chaukhat');
+  const railingItems = order.items.filter((i) => i.item_type === 'railing');
+  const fixGolaItems = order.items.filter((i) => i.item_type === 'fix_gola');
+  const mouldingItems = order.items.filter((i) => i.item_type === 'moulding');
 
   return (
     <div className="page-container animate-fade-in">
@@ -338,7 +436,7 @@ export function OrderDetailPage() {
           </div>
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-              <label htmlFor="status-select" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>STATUS:</label>
+              <label htmlFor="status-select" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>ORDER STATUS:</label>
               <select
                 id="status-select"
                 className="form-select"
@@ -351,6 +449,39 @@ export function OrderDetailPage() {
                 <option value="completed">COMPLETED</option>
                 <option value="delivered">DELIVERED</option>
               </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+              <label htmlFor="payment-status-select" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>PAYMENT STATUS:</label>
+              <select
+                id="payment-status-select"
+                className="form-select"
+                style={{ height: '38px', minHeight: 'auto', padding: '0.375rem 2rem 0.375rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 700 }}
+                value={paymentStatus}
+                onChange={(e) => handlePaymentStatusChange(e.target.value)}
+              >
+                <option value="pending">PENDING</option>
+                <option value="paid">PAID</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+              <label htmlFor="advance-paid-input" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>ADVANCE PAID (₹):</label>
+              <input
+                id="advance-paid-input"
+                type="number"
+                className="form-input"
+                style={{ width: '130px', height: '38px', minHeight: 'auto', fontFamily: 'var(--font-display)', fontWeight: 700 }}
+                value={advancePaid}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setAdvancePaid(val);
+                }}
+                onBlur={handleAdvancePaidBlur}
+                disabled={paymentStatus === 'paid'}
+                min={0}
+                step="any"
+              />
             </div>
             
             <button className="btn btn-outline" onClick={handleExportPDF} disabled={pdfGenerating} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -379,7 +510,7 @@ export function OrderDetailPage() {
               </h3>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 {selectedIds.filter(id => doorItems.some(i => i.id === id)).length > 0 && (
-                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={handleDeleteSelected}>
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={() => handleDeleteSelected('door_window')}>
                     <Trash2 size={14} />
                     <span>Delete Selected ({selectedIds.filter(id => doorItems.some(i => i.id === id)).length})</span>
                   </button>
@@ -398,7 +529,7 @@ export function OrderDetailPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -420,7 +551,8 @@ export function OrderDetailPage() {
                   <span>Height ({order.door_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Width ({order.door_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
-                  <span style={{ textAlign: 'right' }}>Calculated Area</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Area & Cost</span>
                   <span></span>
                 </div>
                 {doorItems.map((item) => (
@@ -446,7 +578,7 @@ export function OrderDetailPage() {
               </h3>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 {selectedIds.filter(id => chaukhatItems.some(i => i.id === id)).length > 0 && (
-                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={handleDeleteSelected}>
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginRight: '0.5rem' }} onClick={() => handleDeleteSelected('chaukhat')}>
                     <Trash2 size={14} />
                     <span>Delete Selected ({selectedIds.filter(id => chaukhatItems.some(i => i.id === id)).length})</span>
                   </button>
@@ -461,11 +593,11 @@ export function OrderDetailPage() {
 
             {chaukhatItems.length === 0 ? (
               <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
-                No chaukhat frame measurements on this sheet.
+                No chaukhat frame measurements added yet.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -487,7 +619,8 @@ export function OrderDetailPage() {
                   <span>Height ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Width ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
-                  <span style={{ textAlign: 'right' }}>Running Length</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
                 {chaukhatItems.map((item) => (
@@ -505,35 +638,681 @@ export function OrderDetailPage() {
             )}
           </div>
 
-          {/* Notes Section */}
-          <div className="form-group">
-            <label htmlFor="order-notes-textarea" className="form-label" style={{ fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Order Notes (Auto-saves on blur)</label>
-            <textarea
-              id="order-notes-textarea"
-              className="form-textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={handleNotesBlur}
-              placeholder="Provide any additional specifications for this order sheet..."
-              maxLength={1000}
-            />
+          {/* Railings Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Railings
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedIds.filter(id => railingItems.some(i => i.id === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('railing')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedIds.filter(id => railingItems.some(i => i.id === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddRailingItem}>
+                  <Plus size={14} />
+                  <span>Add Railing</span>
+                </button>
+              </div>
+            </div>
+
+            {railingItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No railing measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={railingItems.length > 0 && railingItems.every(i => selectedIds.includes(i.id))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const railingIds = railingItems.map(i => i.id);
+                        if (checked) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, ...railingIds])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => !railingIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all railings"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {railingItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.id}
+                    item={item}
+                    unit={order.railing_unit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedIds.includes(item.id)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Fix Gola Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Fix Gola
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedIds.filter(id => fixGolaItems.some(i => i.id === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('fix_gola')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedIds.filter(id => fixGolaItems.some(i => i.id === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddFixGolaItem}>
+                  <Plus size={14} />
+                  <span>Add Fix Gola</span>
+                </button>
+              </div>
+            </div>
+
+            {fixGolaItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No fix gola measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={fixGolaItems.length > 0 && fixGolaItems.every(i => selectedIds.includes(i.id))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const fixGolaIds = fixGolaItems.map(i => i.id);
+                        if (checked) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, ...fixGolaIds])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => !fixGolaIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all fix golas"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {fixGolaItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.id}
+                    item={item}
+                    unit={order.fix_gola_unit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedIds.includes(item.id)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Moulding Section */}
+          <div className="order-items-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
+                Moulding
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {selectedIds.filter(id => mouldingItems.some(i => i.id === id)).length > 0 && (
+                  <button type="button" className="btn btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => handleDeleteSelected('moulding')}>
+                    <Trash2 size={14} />
+                    <span>Delete Selected ({selectedIds.filter(id => mouldingItems.some(i => i.id === id)).length})</span>
+                  </button>
+                )}
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddMouldingItem}>
+                  <Plus size={14} />
+                  <span>Add Moulding</span>
+                </button>
+              </div>
+            </div>
+
+            {mouldingItems.length === 0 ? (
+              <div style={{ padding: '2.5rem 2rem', textAlign: 'center', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', borderRadius: 'var(--border-radius)' }}>
+                No moulding measurements added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={mouldingItems.length > 0 && mouldingItems.every(i => selectedIds.includes(i.id))}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const mouldingIds = mouldingItems.map(i => i.id);
+                        if (checked) {
+                          setSelectedIds(prev => Array.from(new Set([...prev, ...mouldingIds])));
+                        } else {
+                          setSelectedIds(prev => prev.filter(id => !mouldingIds.includes(id)));
+                        }
+                      }}
+                      style={{ cursor: 'pointer', accentColor: 'var(--color-accent-amber)' }}
+                      aria-label="Select all mouldings"
+                    />
+                  </div>
+                  <span>Item Label</span>
+                  <span>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</span>
+                  <span>Quantity</span>
+                  <span>Rate (₹)</span>
+                  <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
+                  <span></span>
+                </div>
+                {mouldingItems.map((item) => (
+                  <ChaukhatItemRow
+                    key={item.id}
+                    item={item}
+                    unit={order.moulding_unit}
+                    onChange={handleUpdateItem}
+                    onDelete={handleDeleteItem}
+                    selected={selectedIds.includes(item.id)}
+                    onSelect={handleSelectRow}
+                    valueLabel="LENGTH"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right Column: Order totals summary */}
         <div>
-          <div style={{ position: 'sticky', top: '2rem' }}>
+          <div style={{ position: 'sticky', top: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Unified Side Panel Order Info */}
+            <div className="card" style={{ padding: '1.25rem', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--color-bg-surface)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.375rem', margin: 0 }}>
+                Order Info
+              </h3>
+              
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="order-wood-type" className="form-label" style={{ fontWeight: 800, fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
+                  Wood Type
+                </label>
+                <input
+                  id="order-wood-type"
+                  type="text"
+                  className="form-input"
+                  style={{ textTransform: 'uppercase', height: '36px', minHeight: 'auto' }}
+                  value={woodType}
+                  onChange={(e) => setWoodType(e.target.value)}
+                  onBlur={handleWoodTypeBlur}
+                  placeholder="e.g. Teak Wood"
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor="order-notes" className="form-label" style={{ fontWeight: 800, fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
+                  Order Notes
+                </label>
+                <textarea
+                  id="order-notes"
+                  className="form-textarea"
+                  style={{ minHeight: '100px' }}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onBlur={handleNotesBlur}
+                  placeholder="Provide any additional specifications..."
+                  maxLength={1000}
+                />
+              </div>
+            </div>
+
             <OrderSummary
               doorsSubtotal={order.doors_subtotal}
               chaukhatSubtotal={order.chaukhat_subtotal}
-              doorRate={doorRate}
-              chaukhatRate={chaukhatRate}
-              onDoorRateChange={(val) => handleRatesChange(val, chaukhatRate)}
-              onChaukhatRateChange={(val) => handleRatesChange(doorRate, val)}
+              railingsSubtotal={order.railings_subtotal}
+              fixGolaSubtotal={order.fix_gola_subtotal}
+              mouldingSubtotal={order.moulding_subtotal}
+              doorsAmount={order.doors_amount}
+              chaukhatAmount={order.chaukhat_amount}
+              railingsAmount={order.railings_amount}
+              fixGolaAmount={order.fix_gola_amount}
+              mouldingAmount={order.moulding_amount}
+              advancePaid={order.advance_paid}
+              paymentStatus={order.payment_status}
             />
           </div>
         </div>
       </div>
+
+      {/* Modal Dialog for PDF Print Preview */}
+      <dialog 
+        ref={previewDialogRef} 
+        style={{
+          width: '90vw',
+          maxWidth: '900px',
+          padding: 0,
+          border: 'none',
+          borderRadius: 'var(--border-radius-lg, 8px)',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', height: '85vh', overflow: 'hidden' }}>
+          {/* Header */}
+          <div className="dialog-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)' }}>
+            <h3 className="dialog-title" style={{ margin: 0, fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
+              Invoice Print Preview
+            </h3>
+            <button
+              type="button"
+              className="dialog-close"
+              onClick={() => previewDialogRef.current?.close()}
+              style={{ padding: '0.25rem', fontSize: '1.25rem', cursor: 'pointer' }}
+              aria-label="Close preview"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Body */}
+          <div style={{ flexGrow: 1, padding: '1.5rem', overflowY: 'auto', backgroundColor: '#f5f5f5', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+            <div style={{
+              width: '100%',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--border-radius)',
+              overflow: 'hidden',
+              padding: '1.5rem'
+            }}>
+              {order && client && (
+                <div className="print-invoice" style={{ boxShadow: 'none', border: 'none', margin: 0, padding: 0 }}>
+                  {/* Shop Header */}
+                  <div className="print-header">
+                    <div className="print-shop-details">
+                      <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '1px', margin: 0 }}>ESTIMATE</h1>
+                    </div>
+                    <div className="print-invoice-meta">
+                      <p><strong>Sheet ID:</strong> <span className="print-number">#{order.id}</span></p>
+                      <p><strong>Date:</strong> <span className="print-number">{new Date(order.order_date).toLocaleDateString()}</span></p>
+                    </div>
+                  </div>
+
+                  {/* Customer Billing Info */}
+                  <div className="print-billing-grid">
+                    <div className="print-bill-to">
+                      <h3>Customer Details</h3>
+                      <p><strong>Name:</strong> {client.name}</p>
+                      {client.phone && <p><strong>Phone:</strong> <span className="print-number">{client.phone}</span></p>}
+                      {client.address && <p><strong>Address:</strong> {client.address}</p>}
+                    </div>
+                    <div className="print-order-details">
+                      <h3>Specification Info</h3>
+                      {order.wood_type && (
+                        <p><strong>Wood Type:</strong> <span className="print-number" style={{ textTransform: 'uppercase' }}>{order.wood_type}</span></p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Doors Table */}
+                  {doorItems.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                        DOORS & WINDOWS MEASUREMENTS
+                      </h3>
+                      <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.door_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.door_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Area (sqft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / sqft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {doorItems.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
+                              <td style={{ padding: '0.5rem' }}>{item.label}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} sqft</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
+                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Chaukhats Table */}
+                  {chaukhatItems.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                        CHAUKHATS (FRAMES) MEASUREMENTS
+                      </h3>
+                      <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chaukhatItems.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
+                              <td style={{ padding: '0.5rem' }}>{item.label}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
+                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Railings Table */}
+                  {railingItems.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                        RAILINGS MEASUREMENTS
+                      </h3>
+                      <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {railingItems.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
+                              <td style={{ padding: '0.5rem' }}>{item.label}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
+                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Fix Gola Table */}
+                  {fixGolaItems.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                        FIX GOLA MEASUREMENTS
+                      </h3>
+                      <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fixGolaItems.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
+                              <td style={{ padding: '0.5rem' }}>{item.label}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
+                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Moulding Table */}
+                  {mouldingItems.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                        MOULDING MEASUREMENTS
+                      </h3>
+                      <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
+                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mouldingItems.map((item) => (
+                            <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
+                              <td style={{ padding: '0.5rem' }}>{item.label}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
+                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
+                              <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
+                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Calculations & Totals Summary */}
+                  <div className="print-summary-box" style={{ marginLeft: 'auto', width: '320px', marginTop: '1.5rem' }}>
+                    {doorItems.length > 0 && order.doors_amount > 0 && (
+                      <>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span>Doors Area Subtotal:</span>
+                          <span>{order.doors_subtotal.toFixed(2)} sqft</span>
+                        </div>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span><strong>Doors Total Cost:</strong></span>
+                          <span><strong>₹{order.doors_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                      </>
+                    )}
+
+                    {chaukhatItems.length > 0 && order.chaukhat_amount > 0 && (
+                      <>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span>Chaukhats Length Subtotal:</span>
+                          <span>{order.chaukhat_subtotal.toFixed(2)} ft</span>
+                        </div>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span><strong>Chaukhats Total Cost:</strong></span>
+                          <span><strong>₹{order.chaukhat_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                      </>
+                    )}
+
+                    {railingItems.length > 0 && order.railings_amount > 0 && (
+                      <>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span>Railings Length Subtotal:</span>
+                          <span>{order.railings_subtotal.toFixed(2)} ft</span>
+                        </div>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span><strong>Railings Total Cost:</strong></span>
+                          <span><strong>₹{order.railings_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                      </>
+                    )}
+
+                    {fixGolaItems.length > 0 && order.fix_gola_amount > 0 && (
+                      <>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span>Fix Gola Length Subtotal:</span>
+                          <span>{order.fix_gola_subtotal.toFixed(2)} ft</span>
+                        </div>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span><strong>Fix Gola Total Cost:</strong></span>
+                          <span><strong>₹{order.fix_gola_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                      </>
+                    )}
+
+                    {mouldingItems.length > 0 && order.moulding_amount > 0 && (
+                      <>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span>Moulding Length Subtotal:</span>
+                          <span>{order.moulding_subtotal.toFixed(2)} ft</span>
+                        </div>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span><strong>Moulding Total Cost:</strong></span>
+                          <span><strong>₹{order.moulding_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                      </>
+                    )}
+
+                    <div className="print-summary-row grand-total" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
+                      <span>GRAND TOTAL:</span>
+                      <span>₹{order.total_value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-text)', margin: '0.4rem 0' }} />
+
+                    {order.payment_status === 'paid' ? (
+                      <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 800, fontSize: '0.9rem' }}>
+                        <span>PAYMENT STATUS:</span>
+                        <span>PAID</span>
+                      </div>
+                    ) : (
+                      <>
+                        {order.advance_paid > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, marginBottom: '0.25rem' }}>
+                            <span>Advance Paid:</span>
+                            <span>₹{order.advance_paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontWeight: 800, fontSize: '0.9rem', borderTop: '1px dashed var(--color-print-border)', paddingTop: '0.25rem', marginTop: '0.25rem' }}>
+                          <span>BALANCE DUE:</span>
+                          <span>₹{Math.max(0, order.total_value - order.advance_paid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Notes Block */}
+                  {order.notes && (
+                    <div className="print-notes" style={{ marginTop: '2rem', borderTop: '1px solid var(--color-print-border)', paddingTop: '1rem' }}>
+                      <h4 style={{ margin: '0 0 0.5rem 0' }}>Order Specifications / Notes</h4>
+                      <p style={{ margin: 0 }}>{order.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', backgroundColor: 'var(--color-bg-app)' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => previewDialogRef.current?.close()}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={async () => {
+                if (!order) return;
+                setPdfGenerating(true);
+                setToastMessage('Generating PDF Invoice...');
+                try {
+                  const result = await window.api.exportOrderPDF(order.id);
+                  if (result.success) {
+                    showToast(`PDF exported successfully: ${result.path}`);
+                    previewDialogRef.current?.close();
+                  } else if (result.error !== 'Cancelled') {
+                    showToast(`Failed to export PDF: ${result.error}`);
+                  } else {
+                    setToastMessage('');
+                  }
+                } catch (err: unknown) {
+                  console.error(err);
+                  showToast(`Error: ${(err as Error).message}`);
+                } finally {
+                  setPdfGenerating(false);
+                }
+              }}
+              disabled={pdfGenerating}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+            >
+              <FileText size={16} />
+              <span>{pdfGenerating ? 'Generating PDF...' : 'Download & Save PDF'}</span>
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }

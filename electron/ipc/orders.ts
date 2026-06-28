@@ -5,41 +5,51 @@ import { calculateItemValue, calculateOrderTotals } from '../../src/lib/calculat
 
 // Helper to recalculate and persist totals for an order
 export function recalculateAndUpdateOrderTotals(db: any, orderId: number) {
-  // 1. Fetch order details (rates)
-  const order = db.prepare('SELECT door_rate, chaukhat_rate FROM orders WHERE id = ?').get(orderId);
-  if (!order) return;
+  // 1. Fetch all items for this order
+  const items = db.prepare('SELECT item_type, calculated_value, rate FROM order_items WHERE order_id = ?').all(orderId);
 
-  // 2. Fetch all items for this order
-  const items = db.prepare('SELECT item_type, calculated_value FROM order_items WHERE order_id = ?').all(orderId);
+  // 2. Compute totals
+  const totals = calculateOrderTotals(items);
 
-  // 3. Compute totals
-  const totals = calculateOrderTotals(items, order.door_rate, order.chaukhat_rate);
-
-  // 4. Update the order row in the database
+  // 3. Update the order row in the database
   db.prepare(`
     UPDATE orders 
-    SET doors_subtotal = ?, chaukhat_subtotal = ?, total_value = ? 
+    SET doors_subtotal = ?, chaukhat_subtotal = ?, railings_subtotal = ?, fix_gola_subtotal = ?, moulding_subtotal = ?,
+        doors_amount = ?, chaukhat_amount = ?, railings_amount = ?, fix_gola_amount = ?, moulding_amount = ?,
+        total_value = ? 
     WHERE id = ?
-  `).run(totals.doorsSubtotal, totals.chaukhatSubtotal, totals.totalAmount, orderId);
+  `).run(
+    totals.doorsSubtotal, totals.chaukhatSubtotal, totals.railingsSubtotal, totals.fixGolaSubtotal, totals.mouldingSubtotal,
+    totals.doorsAmount, totals.chaukhatAmount, totals.railingsAmount, totals.fixGolaAmount, totals.mouldingAmount,
+    totals.totalAmount, orderId
+  );
 }
 
 export function registerOrdersHandlers() {
   const db = getDb();
 
   // Create new order
-  ipcMain.handle('createOrder', (_event, { clientId, notes, doorUnit, chaukhatUnit }: { clientId: number; notes?: string; doorUnit: string; chaukhatUnit: string }) => {
-    // Retrieve default rates from settings
-    const defaultDoorRateRow = db.prepare("SELECT value FROM settings WHERE key = 'default_door_rate'").get() as { value: string } | undefined;
-    const defaultChaukhatRateRow = db.prepare("SELECT value FROM settings WHERE key = 'default_chaukhat_rate'").get() as { value: string } | undefined;
-    
-    const doorRate = defaultDoorRateRow ? parseFloat(defaultDoorRateRow.value) || 0 : 0;
-    const chaukhatRate = defaultChaukhatRateRow ? parseFloat(defaultChaukhatRateRow.value) || 0 : 0;
-
+  ipcMain.handle('createOrder', (_event, { 
+    clientId, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, woodType 
+  }: { 
+    clientId: number; 
+    notes?: string; 
+    doorUnit: string; 
+    chaukhatUnit: string; 
+    railingUnit: string;
+    fixGolaUnit: string;
+    mouldingUnit: string;
+    woodType?: string 
+  }) => {
     const stmt = db.prepare(`
-      INSERT INTO orders (client_id, notes, door_unit, chaukhat_unit, door_rate, chaukhat_rate, doors_subtotal, chaukhat_subtotal, total_value)
-      VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)
+      INSERT INTO orders (client_id, notes, door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit, wood_type, 
+                          doors_subtotal, chaukhat_subtotal, railings_subtotal, fix_gola_subtotal, moulding_subtotal, 
+                          doors_amount, chaukhat_amount, railings_amount, fix_gola_amount, moulding_amount, total_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     `);
-    const info = stmt.run(clientId, notes || '', doorUnit, chaukhatUnit, doorRate, chaukhatRate);
+    const info = stmt.run(
+      clientId, notes || '', doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, woodType || ''
+    );
     return { id: info.lastInsertRowid };
   });
 
@@ -62,32 +72,46 @@ export function registerOrdersHandlers() {
     return true;
   });
 
-  // Update order status
-  ipcMain.handle('updateOrderStatus', (_event, orderId: number, status: string) => {
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, orderId);
+  // Update order wood type
+  ipcMain.handle('updateOrderWoodType', (_event, orderId: number, woodType: string) => {
+    db.prepare('UPDATE orders SET wood_type = ? WHERE id = ?').run(woodType, orderId);
     return true;
   });
 
-  // Update order rates & recalculate totals
-  ipcMain.handle('updateOrderRates', (_event, orderId: number, { doorRate, chaukhatRate }: { doorRate: number; chaukhatRate: number }) => {
-    db.prepare('UPDATE orders SET door_rate = ?, chaukhat_rate = ? WHERE id = ?').run(doorRate, chaukhatRate, orderId);
-    recalculateAndUpdateOrderTotals(db, orderId);
+  // Update order status
+  ipcMain.handle('updateOrderStatus', (_event, orderId: number, status: string) => {
+    db.prepare('UPDATE orders SET order_status = ? WHERE id = ?').run(status, orderId);
+    return true;
+  });
+
+  // Update order payment status and advance paid
+  ipcMain.handle('updateOrderPaymentDetails', (_event, orderId: number, { paymentStatus, advancePaid }: { paymentStatus: string; advancePaid: number }) => {
+    db.prepare('UPDATE orders SET payment_status = ?, advance_paid = ? WHERE id = ?').run(paymentStatus, advancePaid, orderId);
     return true;
   });
 
   // Add a line item to an order
-  ipcMain.handle('addOrderItem', (_event, orderId: number, item: { item_type: string; label?: string; height: number; width: number; quantity: number }) => {
+  ipcMain.handle('addOrderItem', (_event, orderId: number, item: { item_type: string; label?: string; height: number; width: number; quantity: number; rate: number }) => {
     if (item.height < 0 || item.width < 0 || isNaN(item.height) || isNaN(item.width)) {
       throw new Error('Measurements cannot be negative');
     }
     if (item.quantity < 1 || isNaN(item.quantity)) {
       throw new Error('Quantity must be at least 1');
     }
+    if (item.rate < 0 || isNaN(item.rate)) {
+      throw new Error('Rate cannot be negative');
+    }
 
-    const order = db.prepare('SELECT door_unit, chaukhat_unit FROM orders WHERE id = ?').get(orderId) as { door_unit: string; chaukhat_unit: string } | undefined;
+    const order = db.prepare('SELECT door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit FROM orders WHERE id = ?').get(orderId) as any;
     if (!order) throw new Error('Order not found');
 
-    const unit = item.item_type === 'door_window' ? order.door_unit : order.chaukhat_unit;
+    let unit = 'inches';
+    if (item.item_type === 'door_window') unit = order.door_unit;
+    else if (item.item_type === 'chaukhat') unit = order.chaukhat_unit;
+    else if (item.item_type === 'railing') unit = order.railing_unit;
+    else if (item.item_type === 'fix_gola') unit = order.fix_gola_unit;
+    else if (item.item_type === 'moulding') unit = order.moulding_unit;
+
     const calculatedValue = calculateItemValue({
       item_type: item.item_type,
       height: item.height,
@@ -97,8 +121,8 @@ export function registerOrdersHandlers() {
     });
 
     const stmt = db.prepare(`
-      INSERT INTO order_items (order_id, item_type, label, height, width, quantity, calculated_value)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO order_items (order_id, item_type, label, height, width, quantity, rate, calculated_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       orderId,
@@ -107,6 +131,7 @@ export function registerOrdersHandlers() {
       item.height,
       item.width,
       item.quantity,
+      item.rate,
       calculatedValue
     );
 
@@ -115,7 +140,7 @@ export function registerOrdersHandlers() {
   });
 
   // Update a line item & recalculate totals
-  ipcMain.handle('updateOrderItem', (_event, itemId: number, fields: { label?: string; height?: number; width?: number; quantity?: number }) => {
+  ipcMain.handle('updateOrderItem', (_event, itemId: number, fields: { label?: string; height?: number; width?: number; quantity?: number; rate?: number }) => {
     if (fields.height !== undefined && (typeof fields.height !== 'number' || fields.height < 0 || isNaN(fields.height))) {
       throw new Error('Height cannot be negative');
     }
@@ -125,15 +150,24 @@ export function registerOrdersHandlers() {
     if (fields.quantity !== undefined && (typeof fields.quantity !== 'number' || fields.quantity < 1 || isNaN(fields.quantity))) {
       throw new Error('Quantity must be at least 1');
     }
+    if (fields.rate !== undefined && (typeof fields.rate !== 'number' || fields.rate < 0 || isNaN(fields.rate))) {
+      throw new Error('Rate cannot be negative');
+    }
 
     const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId) as any;
     if (!item) throw new Error('Item not found');
 
-    const order = db.prepare('SELECT door_unit, chaukhat_unit FROM orders WHERE id = ?').get(item.order_id) as { door_unit: string; chaukhat_unit: string } | undefined;
+    const order = db.prepare('SELECT door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit FROM orders WHERE id = ?').get(item.order_id) as any;
     if (!order) throw new Error('Order not found');
 
     const merged = { ...item, ...fields };
-    const unit = merged.item_type === 'door_window' ? order.door_unit : order.chaukhat_unit;
+    let unit = 'inches';
+    if (merged.item_type === 'door_window') unit = order.door_unit;
+    else if (merged.item_type === 'chaukhat') unit = order.chaukhat_unit;
+    else if (merged.item_type === 'railing') unit = order.railing_unit;
+    else if (merged.item_type === 'fix_gola') unit = order.fix_gola_unit;
+    else if (merged.item_type === 'moulding') unit = order.moulding_unit;
+
     const calculatedValue = calculateItemValue({
       item_type: merged.item_type,
       height: merged.height,
@@ -144,7 +178,7 @@ export function registerOrdersHandlers() {
 
     const stmt = db.prepare(`
       UPDATE order_items
-      SET label = ?, height = ?, width = ?, quantity = ?, calculated_value = ?
+      SET label = ?, height = ?, width = ?, quantity = ?, rate = ?, calculated_value = ?
       WHERE id = ?
     `);
     stmt.run(
@@ -152,6 +186,7 @@ export function registerOrdersHandlers() {
       merged.height,
       merged.width,
       merged.quantity,
+      merged.rate,
       calculatedValue,
       itemId
     );

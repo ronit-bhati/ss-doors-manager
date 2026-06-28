@@ -16,10 +16,13 @@ export function initDatabase(): Database.Database {
 
   // Schema verification: if old schema is present, recreate tables for a clean restart
   try {
-    const tableInfo = db.prepare("PRAGMA table_info(orders)").all() as any[];
-    const hasDoorUnit = tableInfo.some(col => col.name === 'door_unit');
-    if (tableInfo.length > 0 && !hasDoorUnit) {
-      console.log('Detected older schema. Recreating tables for a clean startup...');
+    const ordersInfo = db.prepare("PRAGMA table_info(orders)").all() as any[];
+    const hasRailingUnit = ordersInfo.some(col => col.name === 'railing_unit');
+    const hasPaymentStatus = ordersInfo.some(col => col.name === 'payment_status');
+    const hasOrderStatus = ordersInfo.some(col => col.name === 'order_status');
+    
+    if (ordersInfo.length > 0 && (!hasRailingUnit || !hasPaymentStatus || !hasOrderStatus)) {
+      console.log('Detected older schema (Part 2). Recreating tables for a clean startup...');
       db.exec(`
         DROP TABLE IF EXISTS order_items;
         DROP TABLE IF EXISTS orders;
@@ -45,14 +48,26 @@ export function initDatabase(): Database.Database {
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       client_id              INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       order_date             TEXT DEFAULT CURRENT_TIMESTAMP,
-      status                 TEXT DEFAULT 'pending',
+      order_status           TEXT DEFAULT 'pending',
+      payment_status         TEXT DEFAULT 'pending',
+      advance_paid           REAL DEFAULT 0,
       notes                  TEXT,
       door_unit              TEXT NOT NULL DEFAULT 'inches',
       chaukhat_unit          TEXT NOT NULL DEFAULT 'inches',
-      door_rate              REAL DEFAULT 0,
-      chaukhat_rate          REAL DEFAULT 0,
+      railing_unit           TEXT NOT NULL DEFAULT 'inches',
+      fix_gola_unit          TEXT NOT NULL DEFAULT 'inches',
+      moulding_unit          TEXT NOT NULL DEFAULT 'inches',
+      wood_type              TEXT DEFAULT '',
       doors_subtotal         REAL DEFAULT 0,
       chaukhat_subtotal      REAL DEFAULT 0,
+      railings_subtotal      REAL DEFAULT 0,
+      fix_gola_subtotal      REAL DEFAULT 0,
+      moulding_subtotal      REAL DEFAULT 0,
+      doors_amount           REAL DEFAULT 0,
+      chaukhat_amount        REAL DEFAULT 0,
+      railings_amount        REAL DEFAULT 0,
+      fix_gola_amount        REAL DEFAULT 0,
+      moulding_amount        REAL DEFAULT 0,
       total_value            REAL DEFAULT 0,
       created_at             TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -65,6 +80,7 @@ export function initDatabase(): Database.Database {
       height             REAL NOT NULL,
       width              REAL NOT NULL,
       quantity           INTEGER NOT NULL DEFAULT 1,
+      rate               REAL NOT NULL,
       calculated_value   REAL NOT NULL
     );
 
@@ -81,12 +97,17 @@ export function initDatabase(): Database.Database {
   // Insert default settings if missing
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   
-  insertSetting.run('shop_name', 'SS Doors');
-  insertSetting.run('shop_address', '');
-  insertSetting.run('shop_phone', '');
-  insertSetting.run('default_unit', 'inches');
+  insertSetting.run('default_door_unit', 'inches');
+  insertSetting.run('default_chaukhat_unit', 'inches');
+  insertSetting.run('default_railing_unit', 'inches');
+  insertSetting.run('default_fix_gola_unit', 'inches');
+  insertSetting.run('default_moulding_unit', 'inches');
+
   insertSetting.run('default_door_rate', '0');
   insertSetting.run('default_chaukhat_rate', '0');
+  insertSetting.run('default_railing_rate', '0');
+  insertSetting.run('default_fix_gola_rate', '0');
+  insertSetting.run('default_moulding_rate', '0');
   insertSetting.run('zoom_factor', '1.0');
 
   return db;

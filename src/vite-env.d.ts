@@ -9,14 +9,24 @@ interface Window {
     updateClient: (id: number, fields: { name: string; phone?: string; address?: string }) => Promise<boolean>;
     deleteClient: (id: number) => Promise<boolean>;
 
-    createOrder: (data: { clientId: number; notes?: string; doorUnit: string; chaukhatUnit: string }) => Promise<{ id: number }>;
+    createOrder: (data: { 
+      clientId: number; 
+      notes?: string; 
+      doorUnit: string; 
+      chaukhatUnit: string; 
+      railingUnit: string;
+      fixGolaUnit: string;
+      mouldingUnit: string;
+      woodType?: string 
+    }) => Promise<{ id: number }>;
     getOrdersForClient: (clientId: number) => Promise<any[]>;
     getOrder: (orderId: number) => Promise<any>;
     updateOrderNotes: (orderId: number, notes: string) => Promise<boolean>;
+    updateOrderWoodType: (orderId: number, woodType: string) => Promise<boolean>;
     updateOrderStatus: (orderId: number, status: string) => Promise<boolean>;
-    updateOrderRates: (orderId: number, rates: { doorRate: number; chaukhatRate: number }) => Promise<boolean>;
-    addOrderItem: (orderId: number, item: { item_type: string; label?: string; height: number; width: number; quantity: number }) => Promise<{ id: number }>;
-    updateOrderItem: (itemId: number, fields: { label?: string; height?: number; width?: number; quantity?: number }) => Promise<boolean>;
+    updateOrderPaymentDetails: (orderId: number, details: { paymentStatus: string; advancePaid: number }) => Promise<boolean>;
+    addOrderItem: (orderId: number, item: { item_type: string; label?: string; height: number; width: number; quantity: number; rate: number }) => Promise<{ id: number }>;
+    updateOrderItem: (itemId: number, fields: { label?: string; height?: number; width?: number; quantity?: number; rate?: number }) => Promise<boolean>;
     deleteOrderItem: (itemId: number) => Promise<boolean>;
     deleteOrder: (orderId: number) => Promise<boolean>;
 

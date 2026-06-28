@@ -10,7 +10,16 @@ contextBridge.exposeInMainWorld('api', {
   deleteClient: (id: number) => ipcRenderer.invoke('deleteClient', id),
 
   // Orders
-  createOrder: (data: { clientId: number; notes?: string; doorUnit: string; chaukhatUnit: string }) => 
+  createOrder: (data: { 
+    clientId: number; 
+    notes?: string; 
+    doorUnit: string; 
+    chaukhatUnit: string; 
+    railingUnit: string;
+    fixGolaUnit: string;
+    mouldingUnit: string;
+    woodType?: string 
+  }) => 
     ipcRenderer.invoke('createOrder', data),
   getOrdersForClient: (clientId: number) => 
     ipcRenderer.invoke('getOrdersForClient', clientId),
@@ -18,10 +27,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('getOrder', orderId),
   updateOrderNotes: (orderId: number, notes: string) => 
     ipcRenderer.invoke('updateOrderNotes', orderId, notes),
+  updateOrderWoodType: (orderId: number, woodType: string) => 
+    ipcRenderer.invoke('updateOrderWoodType', orderId, woodType),
   updateOrderStatus: (orderId: number, status: string) => 
     ipcRenderer.invoke('updateOrderStatus', orderId, status),
-  updateOrderRates: (orderId: number, rates: { doorRate: number; chaukhatRate: number }) => 
-    ipcRenderer.invoke('updateOrderRates', orderId, rates),
+  updateOrderPaymentDetails: (orderId: number, details: { paymentStatus: string; advancePaid: number }) => 
+    ipcRenderer.invoke('updateOrderPaymentDetails', orderId, details),
   addOrderItem: (orderId: number, item: any) => 
     ipcRenderer.invoke('addOrderItem', orderId, item),
   updateOrderItem: (itemId: number, fields: any) => 

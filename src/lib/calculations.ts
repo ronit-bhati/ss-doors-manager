@@ -47,25 +47,26 @@ export function calculateItemValue(item: {
   unit: string;
 }): number {
   if (item.item_type === 'door_window') return calculateDoorItemValue(item);
-  if (item.item_type === 'chaukhat') return calculateChaukhatItemValue(item);
+  if (
+    item.item_type === 'chaukhat' ||
+    item.item_type === 'railing' ||
+    item.item_type === 'fix_gola' ||
+    item.item_type === 'moulding'
+  ) {
+    return calculateChaukhatItemValue(item);
+  }
   throw new Error(`Unknown item_type: ${item.item_type}`);
 }
 
 interface SummaryItem {
   item_type: string;
   calculated_value: number;
+  rate: number;
 }
 
 // Order totals
-// Subtotals are summed across all line items of each type, then multiplied ONCE
-// by the order-level rate. Rate meaning:
-//   door_rate       -> price per sqft (same regardless of input unit, output is always sqft)
-//   chaukhat_rate   -> price per running foot (same regardless of input unit, output is always running feet)
-export function calculateOrderTotals(
-  items: SummaryItem[],
-  doorRate: number,
-  chaukhatRate: number
-) {
+// Totals are calculated by summing the costs (calculated_value * rate) of each line item.
+export function calculateOrderTotals(items: SummaryItem[]) {
   const doorsSubtotal = items
     .filter((i) => i.item_type === 'door_window')
     .reduce((sum, i) => sum + i.calculated_value, 0);
@@ -74,14 +75,49 @@ export function calculateOrderTotals(
     .filter((i) => i.item_type === 'chaukhat')
     .reduce((sum, i) => sum + i.calculated_value, 0);
 
-  const doorsAmount = doorsSubtotal * (doorRate || 0);
-  const chaukhatAmount = chaukhatSubtotal * (chaukhatRate || 0);
+  const railingsSubtotal = items
+    .filter((i) => i.item_type === 'railing')
+    .reduce((sum, i) => sum + i.calculated_value, 0);
+
+  const fixGolaSubtotal = items
+    .filter((i) => i.item_type === 'fix_gola')
+    .reduce((sum, i) => sum + i.calculated_value, 0);
+
+  const mouldingSubtotal = items
+    .filter((i) => i.item_type === 'moulding')
+    .reduce((sum, i) => sum + i.calculated_value, 0);
+
+  const doorsAmount = items
+    .filter((i) => i.item_type === 'door_window')
+    .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
+
+  const chaukhatAmount = items
+    .filter((i) => i.item_type === 'chaukhat')
+    .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
+
+  const railingsAmount = items
+    .filter((i) => i.item_type === 'railing')
+    .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
+
+  const fixGolaAmount = items
+    .filter((i) => i.item_type === 'fix_gola')
+    .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
+
+  const mouldingAmount = items
+    .filter((i) => i.item_type === 'moulding')
+    .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
 
   return {
     doorsSubtotal,    // always sqft
     chaukhatSubtotal, // always running feet
+    railingsSubtotal,
+    fixGolaSubtotal,
+    mouldingSubtotal,
     doorsAmount,
     chaukhatAmount,
-    totalAmount: doorsAmount + chaukhatAmount
+    railingsAmount,
+    fixGolaAmount,
+    mouldingAmount,
+    totalAmount: doorsAmount + chaukhatAmount + railingsAmount + fixGolaAmount + mouldingAmount
   };
 }

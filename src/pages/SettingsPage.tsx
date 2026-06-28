@@ -2,12 +2,17 @@ import { useState, useEffect } from 'react';
 import { Save, Database, ShieldAlert, HelpCircle } from 'lucide-react';
 
 export function SettingsPage() {
-  const [shopName, setShopName] = useState('');
-  const [shopAddress, setShopAddress] = useState('');
-  const [shopPhone, setShopPhone] = useState('');
-  const [defaultUnit, setDefaultUnit] = useState<'inches' | 'feet'>('inches');
+  const [defaultDoorUnit, setDefaultDoorUnit] = useState<'inches' | 'feet'>('inches');
+  const [defaultChaukhatUnit, setDefaultChaukhatUnit] = useState<'inches' | 'feet'>('inches');
+  const [defaultRailingUnit, setDefaultRailingUnit] = useState<'inches' | 'feet'>('inches');
+  const [defaultFixGolaUnit, setDefaultFixGolaUnit] = useState<'inches' | 'feet'>('inches');
+  const [defaultMouldingUnit, setDefaultMouldingUnit] = useState<'inches' | 'feet'>('inches');
+
   const [defaultDoorRate, setDefaultDoorRate] = useState<number | ''>('');
   const [defaultChaukhatRate, setDefaultChaukhatRate] = useState<number | ''>('');
+  const [defaultRailingRate, setDefaultRailingRate] = useState<number | ''>('');
+  const [defaultFixGolaRate, setDefaultFixGolaRate] = useState<number | ''>('');
+  const [defaultMouldingRate, setDefaultMouldingRate] = useState<number | ''>('');
   const [zoomLevel, setZoomLevel] = useState('1.0');
 
   const [loading, setLoading] = useState(true);
@@ -19,12 +24,17 @@ export function SettingsPage() {
     try {
       const data = await window.api.getAllSettings();
       if (data) {
-        setShopName(data.shop_name || '');
-        setShopAddress(data.shop_address || '');
-        setShopPhone(data.shop_phone || '');
-        setDefaultUnit((data.default_unit as 'inches' | 'feet') || 'inches');
+        setDefaultDoorUnit((data.default_door_unit as 'inches' | 'feet') || 'inches');
+        setDefaultChaukhatUnit((data.default_chaukhat_unit as 'inches' | 'feet') || 'inches');
+        setDefaultRailingUnit((data.default_railing_unit as 'inches' | 'feet') || 'inches');
+        setDefaultFixGolaUnit((data.default_fix_gola_unit as 'inches' | 'feet') || 'inches');
+        setDefaultMouldingUnit((data.default_moulding_unit as 'inches' | 'feet') || 'inches');
+
         setDefaultDoorRate(data.default_door_rate ? parseFloat(data.default_door_rate) || 0 : 0);
         setDefaultChaukhatRate(data.default_chaukhat_rate ? parseFloat(data.default_chaukhat_rate) || 0 : 0);
+        setDefaultRailingRate(data.default_railing_rate ? parseFloat(data.default_railing_rate) || 0 : 0);
+        setDefaultFixGolaRate(data.default_fix_gola_rate ? parseFloat(data.default_fix_gola_rate) || 0 : 0);
+        setDefaultMouldingRate(data.default_moulding_rate ? parseFloat(data.default_moulding_rate) || 0 : 0);
         setZoomLevel(data.zoom_factor || '1.0');
       }
     } catch (err) {
@@ -62,17 +72,28 @@ export function SettingsPage() {
     setSaving(true);
     const finalDoorRate = typeof defaultDoorRate === 'number' ? Math.max(0, defaultDoorRate) : 0;
     const finalChaukhatRate = typeof defaultChaukhatRate === 'number' ? Math.max(0, defaultChaukhatRate) : 0;
+    const finalRailingRate = typeof defaultRailingRate === 'number' ? Math.max(0, defaultRailingRate) : 0;
+    const finalFixGolaRate = typeof defaultFixGolaRate === 'number' ? Math.max(0, defaultFixGolaRate) : 0;
+    const finalMouldingRate = typeof defaultMouldingRate === 'number' ? Math.max(0, defaultMouldingRate) : 0;
     try {
-      await window.api.setSetting('shop_name', shopName);
-      await window.api.setSetting('shop_address', shopAddress);
-      await window.api.setSetting('shop_phone', shopPhone);
-      await window.api.setSetting('default_unit', defaultUnit);
+      await window.api.setSetting('default_door_unit', defaultDoorUnit);
+      await window.api.setSetting('default_chaukhat_unit', defaultChaukhatUnit);
+      await window.api.setSetting('default_railing_unit', defaultRailingUnit);
+      await window.api.setSetting('default_fix_gola_unit', defaultFixGolaUnit);
+      await window.api.setSetting('default_moulding_unit', defaultMouldingUnit);
+
       await window.api.setSetting('default_door_rate', String(finalDoorRate));
       await window.api.setSetting('default_chaukhat_rate', String(finalChaukhatRate));
+      await window.api.setSetting('default_railing_rate', String(finalRailingRate));
+      await window.api.setSetting('default_fix_gola_rate', String(finalFixGolaRate));
+      await window.api.setSetting('default_moulding_rate', String(finalMouldingRate));
       await window.api.setSetting('zoom_factor', zoomLevel);
       
       setDefaultDoorRate(finalDoorRate);
       setDefaultChaukhatRate(finalChaukhatRate);
+      setDefaultRailingRate(finalRailingRate);
+      setDefaultFixGolaRate(finalFixGolaRate);
+      setDefaultMouldingRate(finalMouldingRate);
       showToast('Settings saved successfully.');
     } catch (err) {
       console.error(err);
@@ -130,78 +151,38 @@ export function SettingsPage() {
       <div className="detail-grid" style={{ gridTemplateColumns: '1.8fr 1fr' }}>
         {/* Left Column: Form Settings */}
         <form onSubmit={handleSaveSettings} className="card-el" style={{ gap: '1.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
-            Shop & Default Configurations
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', margin: 0 }}>
+            Product Configurations
           </h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '-0.75rem', marginBottom: '0.5rem' }}>
+            Set the default measurement unit and rate (price) for each product category. These settings will automatically pre-fill for new orders.
+          </p>
 
-          <div className="form-group">
-            <label htmlFor="shop-name-input" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Shop Name</label>
-            <input
-              id="shop-name-input"
-              type="text"
-              className="form-input"
-              value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
-              placeholder="e.g. SS Doors"
-              maxLength={100}
-              required
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="shop-phone-input" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Contact Phone</label>
-              <input
-                id="shop-phone-input"
-                type="text"
-                className="form-input"
-                value={shopPhone}
-                onChange={(e) => setShopPhone(e.target.value)}
-                placeholder="e.g. +91 99999 88888"
-                maxLength={50}
-              />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius)', padding: '1rem', backgroundColor: 'var(--color-bg-app)' }}>
+            {/* Table Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', padding: '0 0.5rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>
+              <span>Product Category</span>
+              <span>Default Unit</span>
+              <span>Default Rate (₹)</span>
             </div>
-            <div className="form-group">
-              <label htmlFor="default-unit-select" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Default Measurement Unit</label>
+
+            {/* Doors Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', alignItems: 'center', padding: '0.25rem 0.5rem' }}>
+              <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>Doors & Windows</span>
               <select
-                id="default-unit-select"
                 className="form-select"
-                value={defaultUnit}
-                onChange={(e) => setDefaultUnit(e.target.value as 'inches' | 'feet')}
+                style={{ height: '34px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.775rem', fontWeight: 700 }}
+                value={defaultDoorUnit}
+                onChange={(e) => setDefaultDoorUnit(e.target.value as 'inches' | 'feet')}
+                aria-label="Default door unit"
               >
                 <option value="inches">INCHES</option>
                 <option value="feet">FEET</option>
               </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="shop-address-textarea" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Shop Address (printed on invoices)</label>
-            <textarea
-              id="shop-address-textarea"
-              className="form-textarea"
-              value={shopAddress}
-              onChange={(e) => setShopAddress(e.target.value)}
-              placeholder="e.g. Plot No. 4, Industrial Area Phase II, New Delhi"
-              maxLength={200}
-            />
-          </div>
-
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem', fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>
-            Default Rates
-          </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '-0.75rem' }}>
-            These rates will automatically pre-fill for all newly created orders, but can be modified per-order.
-          </p>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="default-door-rate-input" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>Default Door Rate (₹ / sqft)</label>
               <input
-                id="default-door-rate-input"
                 type="number"
                 className="form-input"
-                style={{ fontFamily: 'var(--font-display)' }}
+                style={{ height: '34px', minHeight: 'auto', fontFamily: 'var(--font-display)', padding: '0.25rem 0.5rem', fontSize: '0.825rem', fontWeight: 700 }}
                 value={defaultDoorRate}
                 onChange={(e) => {
                   const val = e.target.value === '' ? '' : parseFloat(e.target.value);
@@ -212,19 +193,112 @@ export function SettingsPage() {
                 step="any"
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="default-chaukhat-rate-input" className="form-label" style={{ fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                Default Chaukhat Rate (₹ / running {defaultUnit === 'inches' ? 'in' : 'ft'})
-              </label>
+
+            {/* Chaukhats Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', alignItems: 'center', padding: '0.25rem 0.5rem' }}>
+              <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>Chaukhats (Frames)</span>
+              <select
+                className="form-select"
+                style={{ height: '34px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.775rem', fontWeight: 700 }}
+                value={defaultChaukhatUnit}
+                onChange={(e) => setDefaultChaukhatUnit(e.target.value as 'inches' | 'feet')}
+                aria-label="Default chaukhat unit"
+              >
+                <option value="inches">INCHES</option>
+                <option value="feet">FEET</option>
+              </select>
               <input
-                id="default-chaukhat-rate-input"
                 type="number"
                 className="form-input"
-                style={{ fontFamily: 'var(--font-display)' }}
+                style={{ height: '34px', minHeight: 'auto', fontFamily: 'var(--font-display)', padding: '0.25rem 0.5rem', fontSize: '0.825rem', fontWeight: 700 }}
                 value={defaultChaukhatRate}
                 onChange={(e) => {
                   const val = e.target.value === '' ? '' : parseFloat(e.target.value);
                   setDefaultChaukhatRate(val);
+                }}
+                placeholder="0.00"
+                min={0}
+                step="any"
+              />
+            </div>
+
+            {/* Railings Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', alignItems: 'center', padding: '0.25rem 0.5rem' }}>
+              <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>Railings</span>
+              <select
+                className="form-select"
+                style={{ height: '34px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.775rem', fontWeight: 700 }}
+                value={defaultRailingUnit}
+                onChange={(e) => setDefaultRailingUnit(e.target.value as 'inches' | 'feet')}
+                aria-label="Default railing unit"
+              >
+                <option value="inches">INCHES</option>
+                <option value="feet">FEET</option>
+              </select>
+              <input
+                type="number"
+                className="form-input"
+                style={{ height: '34px', minHeight: 'auto', fontFamily: 'var(--font-display)', padding: '0.25rem 0.5rem', fontSize: '0.825rem', fontWeight: 700 }}
+                value={defaultRailingRate}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setDefaultRailingRate(val);
+                }}
+                placeholder="0.00"
+                min={0}
+                step="any"
+              />
+            </div>
+
+            {/* Fix Gola Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', alignItems: 'center', padding: '0.25rem 0.5rem' }}>
+              <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>Fix Gola</span>
+              <select
+                className="form-select"
+                style={{ height: '34px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.775rem', fontWeight: 700 }}
+                value={defaultFixGolaUnit}
+                onChange={(e) => setDefaultFixGolaUnit(e.target.value as 'inches' | 'feet')}
+                aria-label="Default fix gola unit"
+              >
+                <option value="inches">INCHES</option>
+                <option value="feet">FEET</option>
+              </select>
+              <input
+                type="number"
+                className="form-input"
+                style={{ height: '34px', minHeight: 'auto', fontFamily: 'var(--font-display)', padding: '0.25rem 0.5rem', fontSize: '0.825rem', fontWeight: 700 }}
+                value={defaultFixGolaRate}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setDefaultFixGolaRate(val);
+                }}
+                placeholder="0.00"
+                min={0}
+                step="any"
+              />
+            </div>
+
+            {/* Moulding Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '1.25rem', alignItems: 'center', padding: '0.25rem 0.5rem' }}>
+              <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)' }}>Moulding</span>
+              <select
+                className="form-select"
+                style={{ height: '34px', minHeight: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.775rem', fontWeight: 700 }}
+                value={defaultMouldingUnit}
+                onChange={(e) => setDefaultMouldingUnit(e.target.value as 'inches' | 'feet')}
+                aria-label="Default moulding unit"
+              >
+                <option value="inches">INCHES</option>
+                <option value="feet">FEET</option>
+              </select>
+              <input
+                type="number"
+                className="form-input"
+                style={{ height: '34px', minHeight: 'auto', fontFamily: 'var(--font-display)', padding: '0.25rem 0.5rem', fontSize: '0.825rem', fontWeight: 700 }}
+                value={defaultMouldingRate}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                  setDefaultMouldingRate(val);
                 }}
                 placeholder="0.00"
                 min={0}

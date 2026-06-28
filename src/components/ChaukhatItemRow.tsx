@@ -9,6 +9,7 @@ interface ChaukhatItem {
   height: number | '';
   width: number | '';
   quantity: number;
+  rate: number | '';
 }
 
 interface ChaukhatItemRowProps {
@@ -18,13 +19,15 @@ interface ChaukhatItemRowProps {
   onDelete: (id: string | number) => void;
   selected?: boolean;
   onSelect?: (id: string | number, checked: boolean) => void;
+  valueLabel?: string;
 }
 
-export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onChange, onDelete, selected, onSelect }: ChaukhatItemRowProps) {
+export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onChange, onDelete, selected, onSelect, valueLabel }: ChaukhatItemRowProps) {
   const [label, setLabel] = useState(item.label || '');
   const [height, setHeight] = useState<number | ''>(item.height ? item.height : '');
   const [width, setWidth] = useState<number | ''>(item.width ? item.width : '');
   const [quantity, setQuantity] = useState<number | ''>(item.quantity ?? 1);
+  const [rate, setRate] = useState<number | ''>(item.rate ?? 0);
 
   const rowId = item.id !== undefined ? item.id : (item.tempId || '');
 
@@ -34,11 +37,13 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
     setHeight(item.height ? item.height : '');
     setWidth(item.width ? item.width : '');
     setQuantity(item.quantity ?? 1);
-  }, [item.id, item.label, item.height, item.width, item.quantity]);
+    setRate(item.rate ?? 0);
+  }, [item.id, item.label, item.height, item.width, item.quantity, item.rate]);
 
   const heightVal = typeof height === 'number' ? height : 0;
   const widthVal = typeof width === 'number' ? width : 0;
   const quantityVal = quantity || 0;
+  const rateVal = typeof rate === 'number' ? rate : 0;
   
   const liveLength = calculateChaukhatItemValue({
     height: heightVal,
@@ -46,6 +51,27 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
     quantity: quantityVal,
     unit
   });
+
+  const liveCost = liveLength * rateVal;
+
+  const handleRateBlur = () => {
+    const valStr = String(rate).trim();
+    const val = valStr === '' ? '' : parseFloat(valStr);
+
+    if (val === '' || isNaN(val) || val < 0) {
+      const originalVal = item.rate;
+      const fallback = (typeof originalVal === 'number' && originalVal >= 0) ? originalVal : 0;
+      setRate(fallback);
+      if (item.rate !== fallback) {
+        onChange(rowId, { rate: fallback });
+      }
+    } else {
+      setRate(val);
+      if (item.rate !== val) {
+        onChange(rowId, { rate: val });
+      }
+    }
+  };
 
   const handleLabelBlur = () => {
     const trimmed = label.trim();
@@ -119,7 +145,7 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
   };
 
   const gridStyle = onSelect
-    ? { gridTemplateColumns: '38px 2.2fr 1fr 1fr 1fr 1.3fr auto' }
+    ? { gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto' }
     : {};
 
   return (
@@ -144,7 +170,7 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
           onKeyDown={handleKeyDown}
-          placeholder="E.G. BED 1 FRAME"
+          placeholder=""
           aria-label="Item Label"
         />
       </div>
@@ -208,8 +234,33 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
         />
       </div>
 
-      <div className="item-preview-value">
-        LENGTH: <span>{liveLength.toFixed(2)}</span> FT
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <input
+          type="number"
+          className="form-input table-inline-input"
+          style={{ width: '100%', fontFamily: 'var(--font-display)' }}
+          value={rate}
+          onChange={(e) => {
+            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+            setRate(val);
+          }}
+          onBlur={handleRateBlur}
+          onKeyDown={handleKeyDown}
+          placeholder="RATE (₹)"
+          min={0}
+          step="any"
+          required
+          aria-label="Rate"
+        />
+      </div>
+
+      <div className="item-preview-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', lineHeight: 1.25 }}>
+        <div>
+          {valueLabel || 'LENGTH'}: <span style={{ fontWeight: 700 }}>{liveLength.toFixed(2)}</span> FT
+        </div>
+        <div style={{ fontSize: '0.725rem', color: 'var(--color-emerald)', fontWeight: 600 }}>
+          ₹{liveCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
       </div>
 
       <button

@@ -14,7 +14,15 @@ export function registerClientsHandlers() {
   });
 
   ipcMain.handle('getClients', () => {
-    return db.prepare('SELECT * FROM clients ORDER BY name ASC').all();
+    return db.prepare(`
+      SELECT c.*, 
+             GROUP_CONCAT(o.order_status) as order_statuses, 
+             GROUP_CONCAT(o.payment_status) as payment_statuses 
+      FROM clients c 
+      LEFT JOIN orders o ON c.id = o.client_id 
+      GROUP BY c.id 
+      ORDER BY c.name ASC
+    `).all();
   });
 
   ipcMain.handle('getClient', (_event, id: number) => {

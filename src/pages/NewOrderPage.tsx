@@ -434,8 +434,18 @@ export function NewOrderPage() {
     }
 
     for (const item of items) {
-      if (item.height === '' || item.width === '' || item.height <= 0 || item.width <= 0) {
-        alert('Please fill out positive height and width for all items.');
+      if (
+        item.height === '' ||
+        item.width === '' ||
+        !Number.isFinite(item.height) ||
+        !Number.isFinite(item.width) ||
+        item.height <= 0 ||
+        item.width <= 0 ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity < 1 ||
+        (typeof item.rate === 'number' && (!Number.isFinite(item.rate) || item.rate < 0))
+      ) {
+        alert('Please enter valid measurements, quantity, and rate for all items.');
         return;
       }
     }
@@ -443,32 +453,28 @@ export function NewOrderPage() {
     setSubmitting(true);
 
     try {
-      // 1. Create order
-      const orderResult = await window.api.createOrder({
-        clientId: client.id,
-        notes: notes,
-        doorUnit,
-        chaukhatUnit,
-        railingUnit,
-        fixGolaUnit,
-        mouldingUnit,
-        woodType
-      });
-      const orderId = orderResult.id;
-
-      // 2. Add order items
-      for (const item of items) {
-        await window.api.addOrderItem(orderId, {
+      const orderResult = await window.api.createOrderWithItems({
+        order: {
+          clientId: client.id,
+          notes,
+          doorUnit,
+          chaukhatUnit,
+          railingUnit,
+          fixGolaUnit,
+          mouldingUnit,
+          woodType
+        },
+        items: items.map((item) => ({
           item_type: item.item_type,
           label: item.label,
           height: item.height as number,
           width: item.width as number,
           quantity: item.quantity,
           rate: typeof item.rate === 'number' ? item.rate : 0
-        });
-      }
+        }))
+      });
+      const orderId = orderResult.id;
 
-      // 4. Redirect to order details
       navigate(`/order/${orderId}`);
     } catch (err) {
       console.error('Failed to save order:', err);

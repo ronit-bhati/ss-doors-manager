@@ -9,6 +9,8 @@ interface Client {
   phone: string;
   address: string;
   created_at: string;
+  order_statuses?: string;
+  payment_statuses?: string;
 }
 
 interface Order {
@@ -50,6 +52,7 @@ export function ClientsPage() {
 
   // Form Modal controls
   const [isEditing, setIsEditing] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   // Fetch client list
@@ -134,11 +137,13 @@ export function ClientsPage() {
 
   const openNewClientModal = () => {
     setIsEditing(false);
+    setModalKey(prev => prev + 1);
     dialogRef.current?.showModal();
   };
 
   const openEditClientModal = () => {
     setIsEditing(true);
+    setModalKey(prev => prev + 1);
     dialogRef.current?.showModal();
   };
 
@@ -169,7 +174,7 @@ export function ClientsPage() {
 
   const filteredClients = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return clients.filter((c: any) => {
+    return clients.filter((c) => {
       const matchesSearch =
         c.name.toLowerCase().includes(term) ||
         (c.phone && c.phone.includes(searchTerm));
@@ -431,6 +436,7 @@ export function ClientsPage() {
       {/* Modal Dialog for New/Edit Client */}
       <dialog ref={dialogRef}>
         <ClientForm
+          key={modalKey}
           client={isEditing ? client : null}
           onClose={() => dialogRef.current?.close()}
           onSubmit={handleFormSubmit}

@@ -6,6 +6,7 @@ import { NewOrderPage } from './pages/NewOrderPage.tsx';
 import { OrderDetailPage } from './pages/OrderDetailPage.tsx';
 import { OrderPrintView } from './pages/OrderPrintView.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
+import { ActivationPage } from './pages/ActivationPage.tsx';
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,8 +22,24 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const [isActivated, setIsActivated] = React.useState<boolean | null>(null);
+  const [machineId, setMachineId] = React.useState<string>('');
+  const isElectronRuntime = typeof window !== 'undefined' && Boolean(window.api);
+
   React.useEffect(() => {
-    // 1. Initial Zoom configuration
+    if (!isElectronRuntime) return;
+
+    // 1. Check license status on startup
+    window.api.checkLicense().then((res) => {
+      setIsActivated(res.success);
+      setMachineId(res.machineId);
+    }).catch((err) => {
+      console.error("License check error:", err);
+      setIsActivated(false);
+      setMachineId("ERROR-FETCHING-ID");
+    });
+
+    // 2. Initial Zoom configuration
     const isPrintRoute = window.location.hash.includes('/print/') || window.location.pathname.includes('/print/');
     if (isPrintRoute) {
       window.api.setZoomFactor(1.0);
@@ -37,7 +54,7 @@ export default function App() {
       }
     });
 
-    // 2. Keyboard shortcuts for zoom
+    // 3. Keyboard shortcuts for zoom
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!e.ctrlKey) return;
 
@@ -89,7 +106,51 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('zoom-changed', handleZoomChangedExternally);
     };
-  }, []);
+  }, [isElectronRuntime]);
+
+  if (!isElectronRuntime) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'var(--color-bg-app)',
+        color: 'var(--color-text-primary)',
+        fontFamily: 'var(--font-display)',
+        fontSize: '0.875rem',
+        padding: '1rem',
+        textAlign: 'center'
+      }}>
+        SS Doors Manager is an Electron desktop app. Use npm run dev and work in the app window.
+      </div>
+    );
+  }
+
+  // Show a quiet loading state during startup check
+  if (isActivated === null) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'var(--color-bg-app)',
+        color: 'var(--color-text-secondary)',
+        fontFamily: 'var(--font-display)',
+        fontSize: '0.875rem'
+      }}>
+        Initializing SS Doors Ledger...
+      </div>
+    );
+  }
+
+  // Block screen with activation UI if not licensed
+  if (!isActivated) {
+    return <ActivationPage machineId={machineId} onActivated={() => setIsActivated(true)} />;
+  }
 
   return (
     <Routes>

@@ -1,12 +1,15 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
+type ClientInput = { name: string; phone?: string; address?: string };
+type OrderItemInput = { item_type: string; label?: string; height: number; width: number; quantity: number; rate: number };
+
 // Expose the API to the renderer process safely
 contextBridge.exposeInMainWorld('api', {
   // Clients
-  addClient: (client: any) => ipcRenderer.invoke('addClient', client),
+  addClient: (client: ClientInput) => ipcRenderer.invoke('addClient', client),
   getClients: () => ipcRenderer.invoke('getClients'),
   getClient: (id: number) => ipcRenderer.invoke('getClient', id),
-  updateClient: (id: number, fields: any) => ipcRenderer.invoke('updateClient', id, fields),
+  updateClient: (id: number, fields: ClientInput) => ipcRenderer.invoke('updateClient', id, fields),
   deleteClient: (id: number) => ipcRenderer.invoke('deleteClient', id),
 
   // Orders
@@ -21,6 +24,20 @@ contextBridge.exposeInMainWorld('api', {
     woodType?: string 
   }) => 
     ipcRenderer.invoke('createOrder', data),
+  createOrderWithItems: (payload: {
+    order: {
+      clientId: number;
+      notes?: string;
+      doorUnit: string;
+      chaukhatUnit: string;
+      railingUnit: string;
+      fixGolaUnit: string;
+      mouldingUnit: string;
+      woodType?: string;
+    };
+    items: OrderItemInput[];
+  }) =>
+    ipcRenderer.invoke('createOrderWithItems', payload),
   getOrdersForClient: (clientId: number) => 
     ipcRenderer.invoke('getOrdersForClient', clientId),
   getOrder: (orderId: number) => 
@@ -33,9 +50,9 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('updateOrderStatus', orderId, status),
   updateOrderPaymentDetails: (orderId: number, details: { paymentStatus: string; advancePaid: number }) => 
     ipcRenderer.invoke('updateOrderPaymentDetails', orderId, details),
-  addOrderItem: (orderId: number, item: any) => 
+  addOrderItem: (orderId: number, item: OrderItemInput) => 
     ipcRenderer.invoke('addOrderItem', orderId, item),
-  updateOrderItem: (itemId: number, fields: any) => 
+  updateOrderItem: (itemId: number, fields: Partial<OrderItemInput>) => 
     ipcRenderer.invoke('updateOrderItem', itemId, fields),
   deleteOrderItem: (itemId: number) => 
     ipcRenderer.invoke('deleteOrderItem', itemId),
@@ -47,9 +64,15 @@ contextBridge.exposeInMainWorld('api', {
   setSetting: (key: string, value: string) => ipcRenderer.invoke('setSetting', key, value),
   getAllSettings: () => ipcRenderer.invoke('getAllSettings'),
   backupDatabase: () => ipcRenderer.invoke('backupDatabase'),
+  importDatabase: () => ipcRenderer.invoke('importDatabase'),
+
+  // Licensing
+  checkLicense: () => ipcRenderer.invoke('checkLicense'),
+  activateApp: (code: string) => ipcRenderer.invoke('activateApp', code),
 
   // PDF Export
   exportOrderPDF: (orderId: number) => ipcRenderer.invoke('exportOrderPDF', orderId),
+  notifyPrintReady: (orderId: number) => ipcRenderer.invoke('printRouteReady', orderId),
 
   // Zoom
   setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),

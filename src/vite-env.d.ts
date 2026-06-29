@@ -19,6 +19,19 @@ interface Window {
       mouldingUnit: string;
       woodType?: string 
     }) => Promise<{ id: number }>;
+    createOrderWithItems: (payload: {
+      order: {
+        clientId: number;
+        notes?: string;
+        doorUnit: string;
+        chaukhatUnit: string;
+        railingUnit: string;
+        fixGolaUnit: string;
+        mouldingUnit: string;
+        woodType?: string;
+      };
+      items: Array<{ item_type: string; label?: string; height: number; width: number; quantity: number; rate: number }>;
+    }) => Promise<{ id: number }>;
     getOrdersForClient: (clientId: number) => Promise<any[]>;
     getOrder: (orderId: number) => Promise<any>;
     updateOrderNotes: (orderId: number, notes: string) => Promise<boolean>;
@@ -34,8 +47,13 @@ interface Window {
     setSetting: (key: string, value: string) => Promise<boolean>;
     getAllSettings: () => Promise<Record<string, string>>;
     backupDatabase: () => Promise<{ success: boolean; path?: string; error?: string }>;
+    importDatabase: () => Promise<{ success: boolean; error?: string }>;
+
+    checkLicense: () => Promise<{ success: boolean; machineId: string; error?: string }>;
+    activateApp: (code: string) => Promise<{ success: boolean; error?: string }>;
 
     exportOrderPDF: (orderId: number) => Promise<{ success: boolean; path?: string; error?: string }>;
+    notifyPrintReady: (orderId: number) => Promise<boolean>;
 
     setZoomFactor: (factor: number) => void;
     getZoomFactor: () => number;

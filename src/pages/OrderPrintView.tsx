@@ -77,6 +77,17 @@ export function OrderPrintView() {
     fetchAllData();
   }, [id]);
 
+  useEffect(() => {
+    if (loading || !id) return;
+
+    const orderId = parseInt(id, 10);
+    if (Number.isFinite(orderId)) {
+      window.api.notifyPrintReady(orderId).catch((err) => {
+        console.error('Failed to notify print readiness:', err);
+      });
+    }
+  }, [loading, id]);
+
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Preparing invoice print layout...</div>;
   }

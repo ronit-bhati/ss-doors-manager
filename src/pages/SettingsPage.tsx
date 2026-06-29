@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Save, Database, ShieldAlert, HelpCircle } from 'lucide-react';
+import { Save, Database, ShieldAlert, HelpCircle, Upload } from 'lucide-react';
+
 
 export function SettingsPage() {
   const [defaultDoorUnit, setDefaultDoorUnit] = useState<'inches' | 'feet'>('inches');
@@ -116,6 +117,27 @@ export function SettingsPage() {
       alert(`Error backing up: ${(err as Error).message}`);
     }
   };
+
+  const handleImportDatabase = async () => {
+    const confirmImport = window.confirm(
+      "Are you sure you want to import a database backup?\n\nWARNING: This will replace all current clients, orders, rates, and configuration settings. Your current data will be lost. This action cannot be undone."
+    );
+    if (!confirmImport) return;
+
+    try {
+      const result = await window.api.importDatabase();
+      if (result.success) {
+        alert("Database backup restored successfully! The application will now reload to apply the data.");
+        window.location.reload();
+      } else if (result.error !== 'Cancelled') {
+        alert(`Import failed: ${result.error}`);
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      alert(`Error importing database: ${(err as Error).message}`);
+    }
+  };
+
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -352,17 +374,50 @@ export function SettingsPage() {
               <span>Database Backups</span>
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', lineHeight: 1.45 }}>
-              To protect your business database records from hardware failure or accidental loss, copy your offline database to a secure external folder.
+              Manage your database by saving backups or restoring previous data files.
             </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}
-              onClick={handleBackupDatabase}
-            >
-              <Database size={16} />
-              <span>Backup Database</span>
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}
+                onClick={handleBackupDatabase}
+              >
+                <Database size={16} />
+                <span>Backup Database</span>
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  width: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.375rem',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--border-radius)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'var(--transition-fast)'
+                }}
+                onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-app)';
+                  e.currentTarget.style.borderColor = 'var(--color-text-secondary)';
+                }}
+                onMouseOut={(e: React.MouseEvent<HTMLButtonElement>) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--color-border)';
+                }}
+                onClick={handleImportDatabase}
+              >
+                <Upload size={16} />
+                <span>Import Database Backup</span>
+              </button>
+            </div>
           </div>
 
           <div className="card-el" style={{ gap: '1.25rem' }}>

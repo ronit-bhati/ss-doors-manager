@@ -1,41 +1,57 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import Database from 'better-sqlite3';
 import path from 'node:path';
 import { app } from 'electron';
 
-let db: Database.Database | null = null;
+let dbConnection: Database.Database | null = null;
+
+function ensureColumn(db: Database.Database, table: string, column: string, definition: string): void {
+  const info = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!info.some((col) => col.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+function runMigrations(db: Database.Database): void {
+  db.pragma('user_version = 1');
+
+  const tableRows = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('orders', 'order_items')")
+    .all() as Array<{ name: string }>;
+  const tableNames = new Set(tableRows.map((row) => row.name));
+
+  if (tableNames.has('orders')) {
+    ensureColumn(db, 'orders', 'order_status', "TEXT DEFAULT 'pending'");
+    ensureColumn(db, 'orders', 'payment_status', "TEXT DEFAULT 'pending'");
+    ensureColumn(db, 'orders', 'advance_paid', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'railing_unit', "TEXT NOT NULL DEFAULT 'inches'");
+    ensureColumn(db, 'orders', 'fix_gola_unit', "TEXT NOT NULL DEFAULT 'inches'");
+    ensureColumn(db, 'orders', 'moulding_unit', "TEXT NOT NULL DEFAULT 'inches'");
+    ensureColumn(db, 'orders', 'wood_type', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'railings_subtotal', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'fix_gola_subtotal', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'moulding_subtotal', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'railings_amount', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'fix_gola_amount', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'moulding_amount', 'REAL DEFAULT 0');
+  }
+}
 
 export function initDatabase(): Database.Database {
+  if (dbConnection) {
+    return dbConnection;
+  }
+
   // Store db file in the standard OS-specific appData directory
   const dbPath = path.join(app.getPath('userData'), 'ss-doors-manager.db');
   console.log('Database path:', dbPath);
 
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-
-  // Schema verification: if old schema is present, recreate tables for a clean restart
-  try {
-    const ordersInfo = db.prepare("PRAGMA table_info(orders)").all() as any[];
-    const hasRailingUnit = ordersInfo.some(col => col.name === 'railing_unit');
-    const hasPaymentStatus = ordersInfo.some(col => col.name === 'payment_status');
-    const hasOrderStatus = ordersInfo.some(col => col.name === 'order_status');
-    
-    if (ordersInfo.length > 0 && (!hasRailingUnit || !hasPaymentStatus || !hasOrderStatus)) {
-      console.log('Detected older schema (Part 2). Recreating tables for a clean startup...');
-      db.exec(`
-        DROP TABLE IF EXISTS order_items;
-        DROP TABLE IF EXISTS orders;
-        DROP TABLE IF EXISTS clients;
-        DROP TABLE IF EXISTS settings;
-      `);
-    }
-  } catch (e) {
-    // Orders table might not exist yet, which is fine
-  }
+  dbConnection = new Database(dbPath);
+  dbConnection.pragma('journal_mode = WAL');
+  dbConnection.pragma('foreign_keys = ON');
+  runMigrations(dbConnection);
 
   // Create tables in order of dependencies
-  db.exec(`
+  dbConnection.exec(`
     CREATE TABLE IF NOT EXISTS clients (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       name        TEXT NOT NULL,
@@ -95,7 +111,7 @@ export function initDatabase(): Database.Database {
   `);
 
   // Insert default settings if missing
-  const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  const insertSetting = dbConnection.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   
   insertSetting.run('default_door_unit', 'inches');
   insertSetting.run('default_chaukhat_unit', 'inches');
@@ -110,12 +126,43 @@ export function initDatabase(): Database.Database {
   insertSetting.run('default_moulding_rate', '0');
   insertSetting.run('zoom_factor', '1.0');
 
-  return db;
+  return dbConnection;
 }
 
-export function getDb(): Database.Database {
-  if (!db) {
+// Internal helper to get the active physical database connection (resolves lazily)
+export function getActiveConnection(): Database.Database {
+  if (!dbConnection) {
     return initDatabase();
   }
-  return db;
+  return dbConnection;
+}
+
+// Dynamic Proxy that behaves exactly like a Database.Database instance.
+// It intercepts all property reads/function calls and redirects them to the active connection.
+const dbProxy = new Proxy({} as Database.Database, {
+  get(_target, prop, receiver) {
+    const conn = getActiveConnection();
+    const value = Reflect.get(conn, prop, receiver);
+    if (typeof value === 'function') {
+      return value.bind(conn);
+    }
+    return value;
+  }
+});
+
+// Export getDb which returns the Proxy (caches reference correctly across closures)
+export function getDb(): Database.Database {
+  return dbProxy;
+}
+
+// Closes connection and clears cached reference to allow file overwrite
+export function closeDatabase(): void {
+  if (dbConnection) {
+    try {
+      dbConnection.close();
+    } catch (e) {
+      console.error('Error closing database:', e);
+    }
+    dbConnection = null;
+  }
 }

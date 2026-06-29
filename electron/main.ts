@@ -10,6 +10,7 @@ import { registerClientsHandlers } from './ipc/clients.ts';
 import { registerOrdersHandlers } from './ipc/orders.ts';
 import { registerSettingsHandlers } from './ipc/settings.ts';
 import { registerPdfHandlers } from './pdf.ts';
+import { registerLicenseHandlers } from './ipc/license.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +47,17 @@ function createWindow() {
       sandbox: true,
       preload: path.join(__dirname, 'preload.mjs'),
     },
+  });
+
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event, url) => {
+    const isAllowed =
+      (VITE_DEV_SERVER_URL && url.startsWith(VITE_DEV_SERVER_URL)) ||
+      (!VITE_DEV_SERVER_URL && url.startsWith('file://'));
+
+    if (!isAllowed) {
+      event.preventDefault();
+    }
   });
 
   // Remove menu bar for a cleaner, app-like look
@@ -86,6 +98,7 @@ app.whenReady().then(() => {
   registerOrdersHandlers();
   registerSettingsHandlers();
   registerPdfHandlers();
+  registerLicenseHandlers();
 
   createWindow();
 });

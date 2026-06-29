@@ -68,6 +68,8 @@ export function OrderDetailPage() {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showAddRowMenu, setShowAddRowMenu] = useState(false);
+  const [focusItemId, setFocusItemId] = useState<number | null>(null);
 
   const fetchOrderDetails = useCallback(async () => {
     if (!id) return;
@@ -100,9 +102,58 @@ export function OrderDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (focusItemId !== null) {
+      const el = document.getElementById(`label-input-${focusItemId}`);
+      if (el) {
+        el.focus();
+        setFocusItemId(null);
+      }
+    }
+  }, [order, focusItemId]);
+
   // Keyboard listeners for Order Detail page
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If menu is open, handle key overrides first
+      if (showAddRowMenu) {
+        if (e.key === '1') {
+          e.preventDefault();
+          handleAddDoorItem();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          handleAddChaukhatItem();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '3') {
+          e.preventDefault();
+          handleAddRailingItem();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '4') {
+          e.preventDefault();
+          handleAddFixGolaItem();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '5') {
+          e.preventDefault();
+          handleAddMouldingItem();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowAddRowMenu(false);
+          return;
+        }
+      }
+
       // 1. Esc: Back to client page
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -117,23 +168,47 @@ export function OrderDetailPage() {
         handleExportPDF();
       }
 
-      // 3. Alt+D: Add Door item inline
+      // 3. Alt+N: Toggle unified add row selector
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setShowAddRowMenu((prev) => !prev);
+      }
+
+      // 4. Alt+D: Add Door item inline
       if (e.altKey && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         handleAddDoorItem();
       }
 
-      // 4. Alt+C: Add Chaukhat item inline
+      // 5. Alt+C: Add Chaukhat item inline
       if (e.altKey && e.key.toLowerCase() === 'c') {
         e.preventDefault();
         handleAddChaukhatItem();
+      }
+
+      // 6. Alt+R: Add Railing item inline
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        handleAddRailingItem();
+      }
+
+      // 7. Alt+G: Add Fix Gola item inline
+      if (e.altKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        handleAddFixGolaItem();
+      }
+
+      // 8. Alt+M: Add Moulding item inline
+      if (e.altKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        handleAddMouldingItem();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, order, navigate]);
+  }, [client, order, navigate, showAddRowMenu]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!order) return;
@@ -206,7 +281,7 @@ export function OrderDetailPage() {
     try {
       const settings = await window.api.getAllSettings();
       const defRate = settings?.default_door_rate ? parseFloat(settings.default_door_rate) || 0 : 0;
-      await window.api.addOrderItem(order.id, {
+      const res = await window.api.addOrderItem(order.id, {
         item_type: 'door_window',
         label: '',
         height: 0,
@@ -214,6 +289,9 @@ export function OrderDetailPage() {
         quantity: 1,
         rate: defRate
       });
+      if (res && res.id) {
+        setFocusItemId(Number(res.id));
+      }
       fetchOrderDetails();
     } catch (err) {
       console.error(err);
@@ -225,7 +303,7 @@ export function OrderDetailPage() {
     try {
       const settings = await window.api.getAllSettings();
       const defRate = settings?.default_chaukhat_rate ? parseFloat(settings.default_chaukhat_rate) || 0 : 0;
-      await window.api.addOrderItem(order.id, {
+      const res = await window.api.addOrderItem(order.id, {
         item_type: 'chaukhat',
         label: '',
         height: 0,
@@ -233,6 +311,9 @@ export function OrderDetailPage() {
         quantity: 1,
         rate: defRate
       });
+      if (res && res.id) {
+        setFocusItemId(Number(res.id));
+      }
       fetchOrderDetails();
     } catch (err) {
       console.error(err);
@@ -244,7 +325,7 @@ export function OrderDetailPage() {
     try {
       const settings = await window.api.getAllSettings();
       const defRate = settings?.default_railing_rate ? parseFloat(settings.default_railing_rate) || 0 : 0;
-      await window.api.addOrderItem(order.id, {
+      const res = await window.api.addOrderItem(order.id, {
         item_type: 'railing',
         label: '',
         height: 0,
@@ -252,6 +333,9 @@ export function OrderDetailPage() {
         quantity: 1,
         rate: defRate
       });
+      if (res && res.id) {
+        setFocusItemId(Number(res.id));
+      }
       fetchOrderDetails();
     } catch (err) {
       console.error(err);
@@ -263,7 +347,7 @@ export function OrderDetailPage() {
     try {
       const settings = await window.api.getAllSettings();
       const defRate = settings?.default_fix_gola_rate ? parseFloat(settings.default_fix_gola_rate) || 0 : 0;
-      await window.api.addOrderItem(order.id, {
+      const res = await window.api.addOrderItem(order.id, {
         item_type: 'fix_gola',
         label: '',
         height: 0,
@@ -271,6 +355,9 @@ export function OrderDetailPage() {
         quantity: 1,
         rate: defRate
       });
+      if (res && res.id) {
+        setFocusItemId(Number(res.id));
+      }
       fetchOrderDetails();
     } catch (err) {
       console.error(err);
@@ -282,7 +369,7 @@ export function OrderDetailPage() {
     try {
       const settings = await window.api.getAllSettings();
       const defRate = settings?.default_moulding_rate ? parseFloat(settings.default_moulding_rate) || 0 : 0;
-      await window.api.addOrderItem(order.id, {
+      const res = await window.api.addOrderItem(order.id, {
         item_type: 'moulding',
         label: '',
         height: 0,
@@ -290,6 +377,9 @@ export function OrderDetailPage() {
         quantity: 1,
         rate: defRate
       });
+      if (res && res.id) {
+        setFocusItemId(Number(res.id));
+      }
       fetchOrderDetails();
     } catch (err) {
       console.error(err);
@@ -528,8 +618,8 @@ export function OrderDetailPage() {
                 No door or window measurements on this sheet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -555,17 +645,19 @@ export function OrderDetailPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Area & Cost</span>
                   <span></span>
                 </div>
-                {doorItems.map((item) => (
-                  <DoorItemRow
-                    key={item.id}
-                    item={item}
-                    unit={order.door_unit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedIds.includes(item.id)}
-                    onSelect={handleSelectRow}
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {doorItems.map((item) => (
+                    <DoorItemRow
+                      key={item.id}
+                      item={item}
+                      unit={order.door_unit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedIds.includes(item.id)}
+                      onSelect={handleSelectRow}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -596,8 +688,8 @@ export function OrderDetailPage() {
                 No chaukhat frame measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -623,17 +715,19 @@ export function OrderDetailPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {chaukhatItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.id}
-                    item={item}
-                    unit={order.chaukhat_unit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedIds.includes(item.id)}
-                    onSelect={handleSelectRow}
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {chaukhatItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.id}
+                      item={item}
+                      unit={order.chaukhat_unit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedIds.includes(item.id)}
+                      onSelect={handleSelectRow}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -654,6 +748,7 @@ export function OrderDetailPage() {
                 <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddRailingItem}>
                   <Plus size={14} />
                   <span>Add Railing</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+R</kbd>
                 </button>
               </div>
             </div>
@@ -663,8 +758,8 @@ export function OrderDetailPage() {
                 No railing measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -690,18 +785,20 @@ export function OrderDetailPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {railingItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.id}
-                    item={item}
-                    unit={order.railing_unit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedIds.includes(item.id)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {railingItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.id}
+                      item={item}
+                      unit={order.railing_unit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedIds.includes(item.id)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -722,6 +819,7 @@ export function OrderDetailPage() {
                 <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddFixGolaItem}>
                   <Plus size={14} />
                   <span>Add Fix Gola</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+G</kbd>
                 </button>
               </div>
             </div>
@@ -731,8 +829,8 @@ export function OrderDetailPage() {
                 No fix gola measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -758,18 +856,20 @@ export function OrderDetailPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {fixGolaItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.id}
-                    item={item}
-                    unit={order.fix_gola_unit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedIds.includes(item.id)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {fixGolaItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.id}
+                      item={item}
+                      unit={order.fix_gola_unit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedIds.includes(item.id)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -790,6 +890,7 @@ export function OrderDetailPage() {
                 <button type="button" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={handleAddMouldingItem}>
                   <Plus size={14} />
                   <span>Add Moulding</span>
+                  <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+M</kbd>
                 </button>
               </div>
             </div>
@@ -799,8 +900,8 @@ export function OrderDetailPage() {
                 No moulding measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -826,18 +927,20 @@ export function OrderDetailPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {mouldingItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.id}
-                    item={item}
-                    unit={order.moulding_unit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedIds.includes(item.id)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {mouldingItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.id}
+                      item={item}
+                      unit={order.moulding_unit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedIds.includes(item.id)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1313,6 +1416,90 @@ export function OrderDetailPage() {
           </div>
         </div>
       </dialog>
+
+      {showAddRowMenu && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--border-radius-lg, 8px)',
+          boxShadow: 'var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.15))',
+          padding: '1rem',
+          zIndex: 1000,
+          width: '320px',
+          animation: 'fade-in 0.15s ease-out',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+            <span style={{ fontSize: '0.675rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
+              Add Product Category
+            </span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Press number key</span>
+          </div>
+
+          {[
+            { key: '1', name: 'Doors & Windows' },
+            { key: '2', name: 'Chaukhats (Frames)' },
+            { key: '3', name: 'Railings' },
+            { key: '4', name: 'Fix Gola' },
+            { key: '5', name: 'Moulding' }
+          ].map((cat) => (
+            <button
+              key={cat.key}
+              type="button"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
+                padding: '0.375rem 0.5rem',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                transition: 'background-color 0.15s'
+              }}
+              onClick={() => {
+                if (cat.key === '1') handleAddDoorItem();
+                else if (cat.key === '2') handleAddChaukhatItem();
+                else if (cat.key === '3') handleAddRailingItem();
+                else if (cat.key === '4') handleAddFixGolaItem();
+                else if (cat.key === '5') handleAddMouldingItem();
+                setShowAddRowMenu(false);
+              }}
+            >
+              <span>{cat.name}</span>
+              <kbd style={{ fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>{cat.key}</kbd>
+            </button>
+          ))}
+          
+          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowAddRowMenu(false)}
+              style={{
+                padding: '0.25rem 0.75rem',
+                fontSize: '0.725rem',
+                fontWeight: 700
+              }}
+            >
+              Cancel (Esc)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

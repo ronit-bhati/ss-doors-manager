@@ -341,7 +341,7 @@ export function ClientsPage() {
                   <button className="btn btn-danger" onClick={handleDeleteClient} aria-label="Delete client record">
                     <Trash2 size={16} />
                     <span>Delete Client</span>
-                    <kbd style={{ marginLeft: '0.375rem', border: '1px solid rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+D</kbd>
+                    <kbd style={{ marginLeft: '0.375rem', border: '1px solid currentColor', backgroundColor: 'transparent', color: 'inherit', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Alt+D</kbd>
                   </button>
                 </div>
               </div>

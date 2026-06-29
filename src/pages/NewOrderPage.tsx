@@ -43,6 +43,7 @@ export function NewOrderPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedTempIds, setSelectedTempIds] = useState<string[]>([]);
+  const [showAddRowMenu, setShowAddRowMenu] = useState(false);
 
   useEffect(() => {
     const initPage = async () => {
@@ -84,6 +85,45 @@ export function NewOrderPage() {
   // Keyboard listeners for New Order page
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If menu is open, handle key overrides first
+      if (showAddRowMenu) {
+        if (e.key === '1') {
+          e.preventDefault();
+          addDoorRow();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          addChaukhatRow();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '3') {
+          e.preventDefault();
+          addRailingRow();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '4') {
+          e.preventDefault();
+          addFixGolaRow();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === '5') {
+          e.preventDefault();
+          addMouldingRow();
+          setShowAddRowMenu(false);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowAddRowMenu(false);
+          return;
+        }
+      }
+
       // 1. Esc: Back to client page
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -99,31 +139,37 @@ export function NewOrderPage() {
         handleSaveOrder(mockEvent);
       }
 
-      // 3. Alt+D: Add Door Row
+      // 3. Alt+N: Toggle unified add row selector
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setShowAddRowMenu((prev) => !prev);
+      }
+
+      // 4. Alt+D: Add Door Row
       if (e.altKey && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         addDoorRow();
       }
 
-      // 4. Alt+C: Add Chaukhat Row
+      // 5. Alt+C: Add Chaukhat Row
       if (e.altKey && e.key.toLowerCase() === 'c') {
         e.preventDefault();
         addChaukhatRow();
       }
 
-      // 5. Alt+R: Add Railing Row
+      // 6. Alt+R: Add Railing Row
       if (e.altKey && e.key.toLowerCase() === 'r') {
         e.preventDefault();
         addRailingRow();
       }
 
-      // 6. Alt+G: Add Fix Gola Row
+      // 7. Alt+G: Add Fix Gola Row
       if (e.altKey && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         addFixGolaRow();
       }
 
-      // 7. Alt+M: Add Moulding Row
+      // 8. Alt+M: Add Moulding Row
       if (e.altKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         addMouldingRow();
@@ -133,13 +179,14 @@ export function NewOrderPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, items, doorRate, chaukhatRate, railingRate, fixGolaRate, mouldingRate, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, navigate]);
+  }, [client, items, doorRate, chaukhatRate, railingRate, fixGolaRate, mouldingRate, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, navigate, showAddRowMenu]);
 
   const addDoorRow = () => {
+    const tempId = Math.random().toString();
     setItems((prev) => [
       ...prev,
       {
-        tempId: Math.random().toString(),
+        tempId,
         item_type: 'door_window',
         label: '',
         height: '',
@@ -148,13 +195,17 @@ export function NewOrderPage() {
         rate: doorRate || 0
       }
     ]);
+    setTimeout(() => {
+      document.getElementById(`label-input-${tempId}`)?.focus();
+    }, 50);
   };
 
   const addChaukhatRow = () => {
+    const tempId = Math.random().toString();
     setItems((prev) => [
       ...prev,
       {
-        tempId: Math.random().toString(),
+        tempId,
         item_type: 'chaukhat',
         label: '',
         height: '',
@@ -163,13 +214,17 @@ export function NewOrderPage() {
         rate: chaukhatRate || 0
       }
     ]);
+    setTimeout(() => {
+      document.getElementById(`label-input-${tempId}`)?.focus();
+    }, 50);
   };
 
   const addRailingRow = () => {
+    const tempId = Math.random().toString();
     setItems((prev) => [
       ...prev,
       {
-        tempId: Math.random().toString(),
+        tempId,
         item_type: 'railing',
         label: '',
         height: '',
@@ -178,13 +233,17 @@ export function NewOrderPage() {
         rate: railingRate || 0
       }
     ]);
+    setTimeout(() => {
+      document.getElementById(`label-input-${tempId}`)?.focus();
+    }, 50);
   };
 
   const addFixGolaRow = () => {
+    const tempId = Math.random().toString();
     setItems((prev) => [
       ...prev,
       {
-        tempId: Math.random().toString(),
+        tempId,
         item_type: 'fix_gola',
         label: '',
         height: '',
@@ -193,13 +252,17 @@ export function NewOrderPage() {
         rate: fixGolaRate || 0
       }
     ]);
+    setTimeout(() => {
+      document.getElementById(`label-input-${tempId}`)?.focus();
+    }, 50);
   };
 
   const addMouldingRow = () => {
+    const tempId = Math.random().toString();
     setItems((prev) => [
       ...prev,
       {
-        tempId: Math.random().toString(),
+        tempId,
         item_type: 'moulding',
         label: '',
         height: '',
@@ -208,6 +271,9 @@ export function NewOrderPage() {
         rate: mouldingRate || 0
       }
     ]);
+    setTimeout(() => {
+      document.getElementById(`label-input-${tempId}`)?.focus();
+    }, 50);
   };
 
   const handleUpdateItem = useCallback((tempId: string | number, fields: Partial<ItemState>) => {
@@ -582,8 +648,8 @@ export function NewOrderPage() {
                 No door or window measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -609,17 +675,19 @@ export function NewOrderPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Area & Cost</span>
                   <span></span>
                 </div>
-                {doorItems.map((item) => (
-                  <DoorItemRow
-                    key={item.tempId}
-                    item={item}
-                    unit={doorUnit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedTempIds.includes(item.tempId)}
-                    onSelect={handleSelectRow}
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {doorItems.map((item) => (
+                    <DoorItemRow
+                      key={item.tempId}
+                      item={item}
+                      unit={doorUnit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedTempIds.includes(item.tempId)}
+                      onSelect={handleSelectRow}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -650,8 +718,8 @@ export function NewOrderPage() {
                 No chaukhat frame measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -677,17 +745,19 @@ export function NewOrderPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {chaukhatItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.tempId}
-                    item={item}
-                    unit={chaukhatUnit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedTempIds.includes(item.tempId)}
-                    onSelect={handleSelectRow}
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {chaukhatItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.tempId}
+                      item={item}
+                      unit={chaukhatUnit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedTempIds.includes(item.tempId)}
+                      onSelect={handleSelectRow}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -718,8 +788,8 @@ export function NewOrderPage() {
                 No railing measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -745,18 +815,20 @@ export function NewOrderPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {railingItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.tempId}
-                    item={item}
-                    unit={railingUnit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedTempIds.includes(item.tempId)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {railingItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.tempId}
+                      item={item}
+                      unit={railingUnit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedTempIds.includes(item.tempId)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -787,8 +859,8 @@ export function NewOrderPage() {
                 No fix gola measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -814,18 +886,20 @@ export function NewOrderPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {fixGolaItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.tempId}
-                    item={item}
-                    unit={fixGolaUnit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedTempIds.includes(item.tempId)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {fixGolaItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.tempId}
+                      item={item}
+                      unit={fixGolaUnit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedTempIds.includes(item.tempId)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -856,8 +930,8 @@ export function NewOrderPage() {
                 No moulding measurements added yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '1rem', padding: '0 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center' }}>
+              <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -883,18 +957,20 @@ export function NewOrderPage() {
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
                   <span></span>
                 </div>
-                {mouldingItems.map((item) => (
-                  <ChaukhatItemRow
-                    key={item.tempId}
-                    item={item}
-                    unit={mouldingUnit}
-                    onChange={handleUpdateItem}
-                    onDelete={handleDeleteItem}
-                    selected={selectedTempIds.includes(item.tempId)}
-                    onSelect={handleSelectRow}
-                    valueLabel="LENGTH"
-                  />
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {mouldingItems.map((item) => (
+                    <ChaukhatItemRow
+                      key={item.tempId}
+                      item={item}
+                      unit={mouldingUnit}
+                      onChange={handleUpdateItem}
+                      onDelete={handleDeleteItem}
+                      selected={selectedTempIds.includes(item.tempId)}
+                      onSelect={handleSelectRow}
+                      valueLabel="LENGTH"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -957,6 +1033,90 @@ export function NewOrderPage() {
           </div>
         </div>
       </div>
+
+      {showAddRowMenu && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--border-radius-lg, 8px)',
+          boxShadow: 'var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.15))',
+          padding: '1rem',
+          zIndex: 1000,
+          width: '320px',
+          animation: 'fade-in 0.15s ease-out',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>
+            <span style={{ fontSize: '0.675rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
+              Add Product Category
+            </span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Press number key</span>
+          </div>
+
+          {[
+            { key: '1', name: 'Doors & Windows' },
+            { key: '2', name: 'Chaukhats (Frames)' },
+            { key: '3', name: 'Railings' },
+            { key: '4', name: 'Fix Gola' },
+            { key: '5', name: 'Moulding' }
+          ].map((cat) => (
+            <button
+              key={cat.key}
+              type="button"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
+                padding: '0.375rem 0.5rem',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                transition: 'background-color 0.15s'
+              }}
+              onClick={() => {
+                if (cat.key === '1') addDoorRow();
+                else if (cat.key === '2') addChaukhatRow();
+                else if (cat.key === '3') addRailingRow();
+                else if (cat.key === '4') addFixGolaRow();
+                else if (cat.key === '5') addMouldingRow();
+                setShowAddRowMenu(false);
+              }}
+            >
+              <span>{cat.name}</span>
+              <kbd style={{ fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>{cat.key}</kbd>
+            </button>
+          ))}
+          
+          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowAddRowMenu(false)}
+              style={{
+                padding: '0.25rem 0.75rem',
+                fontSize: '0.725rem',
+                fontWeight: 700
+              }}
+            >
+              Cancel (Esc)
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

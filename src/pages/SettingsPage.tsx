@@ -418,8 +418,12 @@ export function SettingsPage() {
                 <kbd>Ctrl + P</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Add Door / Chaukhat:</span>
-                <kbd>Alt + D / C</kbd>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Unified Add Item Menu:</span>
+                <kbd>Alt + N</kbd>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Direct Row Shortcuts:</span>
+                <kbd>Alt + D/C/R/G/M</kbd>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.25rem', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Zoom In:</span>

@@ -164,6 +164,7 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
       )}
       <div className="form-group" style={{ marginBottom: 0 }}>
         <input
+          id={item.id ? `label-input-${item.id}` : `label-input-${item.tempId}`}
           type="text"
           className="form-input table-inline-input"
           value={label}

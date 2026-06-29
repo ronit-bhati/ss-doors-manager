@@ -575,14 +575,17 @@ dialog::backdrop {
   grid-template-columns: 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto;
   gap: 0.75rem;
   align-items: center;
-  background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  padding: 0.5rem;
-  border-radius: var(--border-radius);
+  background-color: transparent;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.item-row-card:last-child {
+  border-bottom: none;
 }
 
 .item-row-card:hover {
-  border-color: var(--color-accent-amber);
+  background-color: rgba(30, 41, 59, 0.015);
 }
 
 .item-preview-value {

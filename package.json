@@ -8,10 +8,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && node scripts/secure-build.cjs && electron-builder",
+    "build": "tsc && vite build && node scripts/secure-build.cjs && node scripts/native-binary-manager.cjs linux && electron-builder --config.npmRebuild=false",
     "build:vite": "tsc && vite build",
-    "build:linux": "tsc && vite build && node scripts/secure-build.cjs && electron-builder --linux AppImage",
-    "build:win": "tsc && vite build && node scripts/secure-build.cjs && electron-builder --win nsis --x64",
+    "build:linux": "tsc && vite build && node scripts/secure-build.cjs && node scripts/native-binary-manager.cjs linux && electron-builder --linux AppImage --config.npmRebuild=false",
+    "build:win": "tsc && vite build && node scripts/secure-build.cjs && node scripts/native-binary-manager.cjs win32 && electron-builder --win nsis --x64 --config.npmRebuild=false && node scripts/native-binary-manager.cjs linux",
+    "build:all": "tsc && vite build && node scripts/secure-build.cjs && node scripts/native-binary-manager.cjs linux && electron-builder --linux AppImage --config.npmRebuild=false && node scripts/native-binary-manager.cjs win32 && electron-builder --win nsis --x64 --config.npmRebuild=false && node scripts/native-binary-manager.cjs linux",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

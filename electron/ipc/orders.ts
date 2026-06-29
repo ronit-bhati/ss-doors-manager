@@ -11,6 +11,8 @@ import {
   assertPositiveInt,
   sanitizeText
 } from '../validation.ts';
+import { assertLicensed } from '../license.ts';
+
 
 type OrderItemInput = {
   item_type: string;
@@ -145,6 +147,7 @@ export function registerOrdersHandlers() {
     mouldingUnit: string;
     woodType?: string 
   }) => {
+    assertLicensed();
     const data = sanitizeOrderInput({ clientId, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, woodType });
     const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(data.clientId);
     if (!client) {
@@ -176,6 +179,7 @@ export function registerOrdersHandlers() {
     };
     items: OrderItemInput[];
   }) => {
+    assertLicensed();
     const data = sanitizeOrderInput(payload?.order);
     const items = Array.isArray(payload?.items) ? payload.items.map(sanitizeOrderItemInput) : [];
     if (items.length === 0) {
@@ -220,11 +224,13 @@ export function registerOrdersHandlers() {
 
   // Get orders for a specific client
   ipcMain.handle('getOrdersForClient', (_event, clientId: number) => {
+    assertLicensed();
     return db.prepare('SELECT * FROM orders WHERE client_id = ? ORDER BY order_date DESC').all(assertPositiveInt(clientId, 'Client ID'));
   });
 
   // Get full order details, including line items
   ipcMain.handle('getOrder', (_event, orderId: number) => {
+    assertLicensed();
     const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(cleanOrderId);
     if (!order) return null;
@@ -234,6 +240,7 @@ export function registerOrdersHandlers() {
 
   // Update order notes
   ipcMain.handle('updateOrderNotes', (_event, orderId: number, notes: string) => {
+    assertLicensed();
     db.prepare('UPDATE orders SET notes = ? WHERE id = ?').run(
       sanitizeText(notes, 'Notes', 2000),
       assertPositiveInt(orderId, 'Order ID')
@@ -243,6 +250,7 @@ export function registerOrdersHandlers() {
 
   // Update order wood type
   ipcMain.handle('updateOrderWoodType', (_event, orderId: number, woodType: string) => {
+    assertLicensed();
     db.prepare('UPDATE orders SET wood_type = ? WHERE id = ?').run(
       sanitizeText(woodType, 'Wood type', 100),
       assertPositiveInt(orderId, 'Order ID')
@@ -252,6 +260,7 @@ export function registerOrdersHandlers() {
 
   // Update order status
   ipcMain.handle('updateOrderStatus', (_event, orderId: number, status: string) => {
+    assertLicensed();
     db.prepare('UPDATE orders SET order_status = ? WHERE id = ?').run(
       assertEnum(status, ORDER_STATUSES, 'Order status'),
       assertPositiveInt(orderId, 'Order ID')
@@ -261,6 +270,7 @@ export function registerOrdersHandlers() {
 
   // Update order payment status and advance paid
   ipcMain.handle('updateOrderPaymentDetails', (_event, orderId: number, { paymentStatus, advancePaid }: { paymentStatus: string; advancePaid: number }) => {
+    assertLicensed();
     db.prepare('UPDATE orders SET payment_status = ?, advance_paid = ? WHERE id = ?').run(
       assertEnum(paymentStatus, PAYMENT_STATUSES, 'Payment status'),
       assertFiniteNumber(advancePaid, 'Advance paid', { min: 0, max: 1_000_000_000 }),
@@ -271,6 +281,7 @@ export function registerOrdersHandlers() {
 
   // Add a line item to an order
   ipcMain.handle('addOrderItem', (_event, orderId: number, item: { item_type: string; label?: string; height: number; width: number; quantity: number; rate: number }) => {
+    assertLicensed();
     const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
     const order = db.prepare('SELECT door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit FROM orders WHERE id = ?').get(cleanOrderId) as OrderUnits | undefined;
     if (!order) throw new Error('Order not found');
@@ -282,6 +293,7 @@ export function registerOrdersHandlers() {
 
   // Update a line item & recalculate totals
   ipcMain.handle('updateOrderItem', (_event, itemId: number, fields: { label?: string; height?: number; width?: number; quantity?: number; rate?: number }) => {
+    assertLicensed();
     const cleanItemId = assertPositiveInt(itemId, 'Item ID');
     const item = db.prepare('SELECT * FROM order_items WHERE id = ?').get(cleanItemId) as OrderItemRow | undefined;
     if (!item) throw new Error('Item not found');
@@ -327,6 +339,7 @@ export function registerOrdersHandlers() {
 
   // Delete a line item & recalculate totals
   ipcMain.handle('deleteOrderItem', (_event, itemId: number) => {
+    assertLicensed();
     const cleanItemId = assertPositiveInt(itemId, 'Item ID');
     const item = db.prepare('SELECT order_id FROM order_items WHERE id = ?').get(cleanItemId) as { order_id: number } | undefined;
     if (!item) return false;
@@ -338,7 +351,9 @@ export function registerOrdersHandlers() {
 
   // Delete an entire order
   ipcMain.handle('deleteOrder', (_event, orderId: number) => {
+    assertLicensed();
     db.prepare('DELETE FROM orders WHERE id = ?').run(assertPositiveInt(orderId, 'Order ID'));
     return true;
   });
 }
+

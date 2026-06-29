@@ -14,6 +14,9 @@ dist-ssr/
 # ── Electron-builder release artifacts ────────
 release/
 
+# ── Native binary cache (platform-specific .node files) ──
+scripts/.native-cache/
+
 # ── Logs ──────────────────────────────────────
 logs/
 *.log

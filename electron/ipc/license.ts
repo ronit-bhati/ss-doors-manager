@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { getDb } from '../db.ts';
-import { getDisplayMachineId, verifyCode } from '../license.ts';
+import { getDisplayMachineId, verifyCode, invalidateLicenseCache } from '../license.ts';
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unknown licensing error.';
@@ -35,6 +35,10 @@ export function registerLicenseHandlers() {
         // Save to database
         db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
           .run('activation_code', code.trim().toUpperCase());
+        
+        // Invalidate license cache so subsequent calls reflect active status
+        invalidateLicenseCache();
+        
         return { success: true };
       }
       return { success: false, error: 'Invalid activation code. Please double-check it or contact developer.' };

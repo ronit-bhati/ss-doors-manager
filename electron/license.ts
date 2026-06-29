@@ -1,5 +1,9 @@
 import { execSync } from 'child_process';
 import * as crypto from 'crypto';
+import { getDb } from './db.ts';
+
+let cachedLicenseStatus: boolean | null = null;
+
 
 function activationSalt(): string {
   return String.fromCharCode(108, 111, 99, 107, 64, 48, 55, 56, 54);
@@ -172,3 +176,40 @@ export function verifyCode(enteredCode: string): boolean {
   const correctBuffer = Buffer.from(cleanCorrect);
   return enteredBuffer.length === correctBuffer.length && crypto.timingSafeEqual(enteredBuffer, correctBuffer);
 }
+
+// 5. Invalidate the licensing cache (called on new activation or database import)
+export function invalidateLicenseCache(): void {
+  cachedLicenseStatus = null;
+}
+
+// 6. Check if the application is currently activated (cached)
+export function isLicensed(): boolean {
+  if (cachedLicenseStatus !== null) {
+    return cachedLicenseStatus;
+  }
+
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('activation_code') as { value: string } | undefined;
+    
+    if (!row || !row.value) {
+      cachedLicenseStatus = false;
+      return false;
+    }
+
+    const isValid = verifyCode(row.value);
+    cachedLicenseStatus = isValid;
+    return isValid;
+  } catch (err) {
+    console.error('Error during license status caching check:', err);
+    return false;
+  }
+}
+
+// 7. Assert that the application is activated, throw error if not
+export function assertLicensed(): void {
+  if (!isLicensed()) {
+    throw new Error('Application is not activated. Please complete the activation process.');
+  }
+}
+

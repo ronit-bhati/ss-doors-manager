@@ -1,6 +1,34 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+
+// ─── Production safety: suppress console output ──────────────────────────────
+// In a packaged Windows GUI app there is no terminal attached, so any attempt
+// to write to stdout/stderr throws EBADF and crashes the process immediately.
+// We silence all console.* calls in production to prevent this.
+if (app.isPackaged) {
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.warn = noop;
+  console.debug = noop;
+  console.error = noop;
+}
+
+// ─── Global crash guard ───────────────────────────────────────────────────────
+// Show a friendly dialog instead of the raw JS error box for any unhandled
+// exception or rejected promise that bubbles up to the main process.
+function showFatalError(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  dialog.showErrorBox(
+    'SS Doors Manager — Unexpected Error',
+    `The application encountered an unexpected error and needs to close.\n\n${message}\n\nPlease restart the application. If this keeps happening, contact support.`
+  );
+  app.quit();
+}
+
+process.on('uncaughtException', showFatalError);
+process.on('unhandledRejection', showFatalError);
 
 // Suppress Chromium hardware driver warnings, VSync failures, and autofill logs
 app.commandLine.appendSwitch('log-level', '3');

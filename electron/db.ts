@@ -43,12 +43,14 @@ export function initDatabase(): Database.Database {
 
   // Store db file in the standard OS-specific appData directory
   const dbPath = path.join(app.getPath('userData'), 'ss-doors-manager.db');
-  console.log('Database path:', dbPath);
 
   dbConnection = new Database(dbPath);
-  dbConnection.pragma('journal_mode = WAL');
-  dbConnection.pragma('foreign_keys = ON');
-  runMigrations(dbConnection);
+
+  // Performance & reliability pragmas
+  dbConnection.pragma('journal_mode = WAL');       // WAL for concurrent read performance
+  dbConnection.pragma('synchronous = NORMAL');     // Best balance of speed/safety for WAL
+  dbConnection.pragma('foreign_keys = ON');        // Enforce referential integrity
+  dbConnection.pragma('busy_timeout = 5000');      // Wait up to 5s instead of failing immediately
 
   // Create tables in order of dependencies
   dbConnection.exec(`
@@ -109,6 +111,9 @@ export function initDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_orders_client_date ON orders(client_id, order_date DESC);
     CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
   `);
+
+  // Run migrations to add any columns introduced in newer versions
+  runMigrations(dbConnection);
 
   // Insert default settings if missing
   const insertSetting = dbConnection.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');

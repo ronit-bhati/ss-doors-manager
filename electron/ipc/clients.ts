@@ -1,9 +1,11 @@
 import { ipcMain } from 'electron';
 import { getDb } from '../db.ts';
 import { assertPositiveInt, sanitizeText } from '../validation.ts';
+import { assertLicensed } from '../license.ts';
 
 export function registerClientsHandlers() {
   ipcMain.handle('addClient', (_event, client: { name: string; phone?: string; address?: string }) => {
+    assertLicensed();
     const db = getDb();
     const name = sanitizeText(client?.name, 'Client name', 100, true);
     const phone = sanitizeText(client?.phone, 'Phone number', 30);
@@ -17,6 +19,7 @@ export function registerClientsHandlers() {
   });
 
   ipcMain.handle('getClients', () => {
+    assertLicensed();
     const db = getDb();
     return db.prepare(`
       SELECT c.*, 
@@ -30,11 +33,13 @@ export function registerClientsHandlers() {
   });
 
   ipcMain.handle('getClient', (_event, id: number) => {
+    assertLicensed();
     const db = getDb();
     return db.prepare('SELECT * FROM clients WHERE id = ?').get(assertPositiveInt(id, 'Client ID'));
   });
 
   ipcMain.handle('updateClient', (_event, id: number, fields: { name: string; phone?: string; address?: string }) => {
+    assertLicensed();
     const db = getDb();
     const clientId = assertPositiveInt(id, 'Client ID');
     const name = sanitizeText(fields?.name, 'Client name', 100, true);
@@ -53,6 +58,7 @@ export function registerClientsHandlers() {
   });
 
   ipcMain.handle('deleteClient', (_event, id: number) => {
+    assertLicensed();
     const db = getDb();
     db.prepare('DELETE FROM clients WHERE id = ?').run(assertPositiveInt(id, 'Client ID'));
     return true;

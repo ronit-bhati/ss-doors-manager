@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getDb } from './db.ts';
 import { assertPositiveInt } from './validation.ts';
+import { assertLicensed } from './license.ts';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pendingPrintRoutes = new Map<string, () => void>();
@@ -52,6 +54,7 @@ export function registerPdfHandlers() {
   });
 
   ipcMain.handle('exportOrderPDF', async (_event, orderId: number) => {
+    assertLicensed();
     const db = getDb();
     const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
     

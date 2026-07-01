@@ -978,7 +978,7 @@ export function OrderDetailPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -998,7 +998,6 @@ export function OrderDetailPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
@@ -1090,7 +1089,7 @@ export function OrderDetailPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -1110,7 +1109,6 @@ export function OrderDetailPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
@@ -1202,7 +1200,7 @@ export function OrderDetailPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -1222,7 +1220,6 @@ export function OrderDetailPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
@@ -1586,7 +1583,6 @@ export function OrderDetailPage() {
                           <tr>
                             <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
-                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
@@ -1597,7 +1593,6 @@ export function OrderDetailPage() {
                             <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
                               <td style={{ padding: '0.5rem' }}>{item.label}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
-                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
@@ -1619,7 +1614,6 @@ export function OrderDetailPage() {
                           <tr>
                             <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
-                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
@@ -1630,7 +1624,6 @@ export function OrderDetailPage() {
                             <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
                               <td style={{ padding: '0.5rem' }}>{item.label}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
-                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
@@ -1652,7 +1645,6 @@ export function OrderDetailPage() {
                           <tr>
                             <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
-                            <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
@@ -1663,7 +1655,6 @@ export function OrderDetailPage() {
                             <tr key={item.id} style={{ borderBottom: '1px solid var(--color-print-border)' }}>
                               <td style={{ padding: '0.5rem' }}>{item.label}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.height}</td>
-                              <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.width}</td>
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>

@@ -47,13 +47,14 @@ export function calculateItemValue(item: {
   unit: string;
 }): number {
   if (item.item_type === 'door_window') return calculateDoorItemValue(item);
+  if (item.item_type === 'chaukhat') return calculateChaukhatItemValue(item);
   if (
-    item.item_type === 'chaukhat' ||
     item.item_type === 'railing' ||
     item.item_type === 'fix_gola' ||
     item.item_type === 'moulding'
   ) {
-    return calculateChaukhatItemValue(item);
+    const rawLength = item.height * item.quantity;
+    return item.unit === 'inches' ? rawLength / 12 : rawLength;
   }
   throw new Error(`Unknown item_type: ${item.item_type}`);
 }

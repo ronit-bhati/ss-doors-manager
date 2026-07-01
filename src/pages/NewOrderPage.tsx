@@ -4,7 +4,7 @@ import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import { DoorItemRow } from '../components/DoorItemRow.tsx';
 import { ChaukhatItemRow } from '../components/ChaukhatItemRow.tsx';
 import { OrderSummary } from '../components/OrderSummary.tsx';
-import { calculateDoorItemValue, calculateChaukhatItemValue } from '../lib/calculations.ts';
+import { calculateDoorItemValue, calculateChaukhatItemValue, calculateItemValue } from '../lib/calculations.ts';
 
 interface Client {
   id: number;
@@ -354,7 +354,7 @@ export function NewOrderPage() {
       .reduce((sum, item) => {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: railingUnit });
+        return sum + calculateItemValue({ item_type: 'railing', height: h, width: w, quantity: item.quantity, unit: railingUnit });
       }, 0);
   }, [items, railingUnit]);
 
@@ -364,7 +364,7 @@ export function NewOrderPage() {
       .reduce((sum, item) => {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: fixGolaUnit });
+        return sum + calculateItemValue({ item_type: 'fix_gola', height: h, width: w, quantity: item.quantity, unit: fixGolaUnit });
       }, 0);
   }, [items, fixGolaUnit]);
 
@@ -374,7 +374,7 @@ export function NewOrderPage() {
       .reduce((sum, item) => {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: mouldingUnit });
+        return sum + calculateItemValue({ item_type: 'moulding', height: h, width: w, quantity: item.quantity, unit: mouldingUnit });
       }, 0);
   }, [items, mouldingUnit]);
 
@@ -407,7 +407,7 @@ export function NewOrderPage() {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
         const r = typeof item.rate === 'number' ? item.rate : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: railingUnit }) * r;
+        return sum + calculateItemValue({ item_type: 'railing', height: h, width: w, quantity: item.quantity, unit: railingUnit }) * r;
       }, 0);
   }, [items, railingUnit]);
 
@@ -418,7 +418,7 @@ export function NewOrderPage() {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
         const r = typeof item.rate === 'number' ? item.rate : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: fixGolaUnit }) * r;
+        return sum + calculateItemValue({ item_type: 'fix_gola', height: h, width: w, quantity: item.quantity, unit: fixGolaUnit }) * r;
       }, 0);
   }, [items, fixGolaUnit]);
 
@@ -429,7 +429,7 @@ export function NewOrderPage() {
         const h = typeof item.height === 'number' ? item.height : 0;
         const w = typeof item.width === 'number' ? item.width : 0;
         const r = typeof item.rate === 'number' ? item.rate : 0;
-        return sum + calculateChaukhatItemValue({ height: h, width: w, quantity: item.quantity, unit: mouldingUnit }) * r;
+        return sum + calculateItemValue({ item_type: 'moulding', height: h, width: w, quantity: item.quantity, unit: mouldingUnit }) * r;
       }, 0);
   }, [items, mouldingUnit]);
 
@@ -444,13 +444,15 @@ export function NewOrderPage() {
     }
 
     for (const item of items) {
+      const needsWidth = item.item_type === 'door_window' || item.item_type === 'chaukhat';
+      const widthVal = typeof item.width === 'number' ? item.width : 0;
       if (
         item.height === '' ||
-        item.width === '' ||
+        (needsWidth && item.width === '') ||
         !Number.isFinite(item.height) ||
-        !Number.isFinite(item.width) ||
+        (needsWidth && !Number.isFinite(widthVal)) ||
         item.height <= 0 ||
-        item.width <= 0 ||
+        (needsWidth && widthVal <= 0) ||
         !Number.isFinite(item.quantity) ||
         item.quantity < 1 ||
         (typeof item.rate === 'number' && (!Number.isFinite(item.rate) || item.rate < 0))
@@ -484,14 +486,17 @@ export function NewOrderPage() {
           mouldingExtraLabel,
           mouldingExtraRate: typeof mouldingExtraRate === 'number' ? mouldingExtraRate : 0
         },
-        items: items.map((item) => ({
-          item_type: item.item_type,
-          label: item.label,
-          height: item.height as number,
-          width: item.width as number,
-          quantity: item.quantity,
-          rate: typeof item.rate === 'number' ? item.rate : 0
-        }))
+        items: items.map((item) => {
+          const needsWidth = item.item_type === 'door_window' || item.item_type === 'chaukhat';
+          return {
+            item_type: item.item_type,
+            label: item.label,
+            height: item.height as number,
+            width: needsWidth ? (item.width as number) : 0,
+            quantity: item.quantity,
+            rate: typeof item.rate === 'number' ? item.rate : 0
+          };
+        })
       });
       const orderId = orderResult.id;
 
@@ -867,7 +872,7 @@ export function NewOrderPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -887,7 +892,6 @@ export function NewOrderPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({railingUnit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({railingUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
@@ -964,7 +968,7 @@ export function NewOrderPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -984,7 +988,6 @@ export function NewOrderPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({fixGolaUnit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({fixGolaUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>
@@ -1061,7 +1064,7 @@ export function NewOrderPage() {
               </div>
             ) : (
               <div className="card-el" style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto', gap: '0.75rem', padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontFamily: 'var(--font-body)', alignItems: 'center', backgroundColor: 'var(--color-bg-app)', borderBottom: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="checkbox"
@@ -1081,7 +1084,6 @@ export function NewOrderPage() {
                   </div>
                   <span>Item Label</span>
                   <span>Height ({mouldingUnit === 'inches' ? 'in' : 'ft'})</span>
-                  <span>Width ({mouldingUnit === 'inches' ? 'in' : 'ft'})</span>
                   <span>Quantity</span>
                   <span>Rate (₹)</span>
                   <span style={{ textAlign: 'right' }}>Calculated Length & Cost</span>

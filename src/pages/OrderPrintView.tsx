@@ -224,7 +224,6 @@ export function OrderPrintView() {
               <tr>
                 <th style={{ width: '35%' }}>Description / Label</th>
                 <th style={{ textAlign: 'center' }}>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
-                <th style={{ textAlign: 'center' }}>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
                 <th style={{ textAlign: 'center' }}>Qty</th>
                 <th style={{ textAlign: 'right' }}>Running Length (ft)</th>
                 <th style={{ textAlign: 'right' }}>Rate (₹ / ft)</th>
@@ -235,7 +234,6 @@ export function OrderPrintView() {
                 <tr key={item.id}>
                   <td>{item.label}</td>
                   <td style={{ textAlign: 'center' }}>{item.height}</td>
-                  <td style={{ textAlign: 'center' }}>{item.width}</td>
                   <td style={{ textAlign: 'center' }}>{item.quantity}</td>
                   <td style={{ textAlign: 'right' }}>{item.calculated_value.toFixed(2)} ft</td>
                   <td style={{ textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
@@ -257,7 +255,6 @@ export function OrderPrintView() {
               <tr>
                 <th style={{ width: '35%' }}>Description / Label</th>
                 <th style={{ textAlign: 'center' }}>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
-                <th style={{ textAlign: 'center' }}>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
                 <th style={{ textAlign: 'center' }}>Qty</th>
                 <th style={{ textAlign: 'right' }}>Running Length (ft)</th>
                 <th style={{ textAlign: 'right' }}>Rate (₹ / ft)</th>
@@ -268,7 +265,6 @@ export function OrderPrintView() {
                 <tr key={item.id}>
                   <td>{item.label}</td>
                   <td style={{ textAlign: 'center' }}>{item.height}</td>
-                  <td style={{ textAlign: 'center' }}>{item.width}</td>
                   <td style={{ textAlign: 'center' }}>{item.quantity}</td>
                   <td style={{ textAlign: 'right' }}>{item.calculated_value.toFixed(2)} ft</td>
                   <td style={{ textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>
@@ -290,7 +286,6 @@ export function OrderPrintView() {
               <tr>
                 <th style={{ width: '35%' }}>Description / Label</th>
                 <th style={{ textAlign: 'center' }}>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
-                <th style={{ textAlign: 'center' }}>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
                 <th style={{ textAlign: 'center' }}>Qty</th>
                 <th style={{ textAlign: 'right' }}>Running Length (ft)</th>
                 <th style={{ textAlign: 'right' }}>Rate (₹ / ft)</th>
@@ -301,7 +296,6 @@ export function OrderPrintView() {
                 <tr key={item.id}>
                   <td>{item.label}</td>
                   <td style={{ textAlign: 'center' }}>{item.height}</td>
-                  <td style={{ textAlign: 'center' }}>{item.width}</td>
                   <td style={{ textAlign: 'center' }}>{item.quantity}</td>
                   <td style={{ textAlign: 'right' }}>{item.calculated_value.toFixed(2)} ft</td>
                   <td style={{ textAlign: 'right' }}>₹{item.rate.toFixed(2)}</td>

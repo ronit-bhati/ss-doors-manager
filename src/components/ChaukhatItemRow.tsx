@@ -1,10 +1,11 @@
 import { useState, useEffect, memo } from 'react';
 import { Trash2 } from 'lucide-react';
-import { calculateChaukhatItemValue } from '../lib/calculations.ts';
+import { calculateItemValue } from '../lib/calculations.ts';
 
 interface ChaukhatItem {
   id?: number;
   tempId?: string;
+  item_type?: 'door_window' | 'chaukhat' | 'railing' | 'fix_gola' | 'moulding';
   label: string;
   height: number | '';
   width: number | '';
@@ -45,7 +46,8 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
   const quantityVal = quantity || 0;
   const rateVal = typeof rate === 'number' ? rate : 0;
   
-  const liveLength = calculateChaukhatItemValue({
+  const liveLength = calculateItemValue({
+    item_type: item.item_type || 'chaukhat',
     height: heightVal,
     width: widthVal,
     quantity: quantityVal,
@@ -144,9 +146,17 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
     }
   };
 
-  const gridStyle = onSelect
-    ? { gridTemplateColumns: '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto' }
-    : {};
+  const isRailingGolaMoulding = item.item_type === 'railing' || item.item_type === 'fix_gola' || item.item_type === 'moulding';
+
+  const gridStyle = {
+    gridTemplateColumns: onSelect
+      ? (isRailingGolaMoulding
+          ? '38px 2.2fr 0.8fr 0.8fr 1fr 1.5fr auto'
+          : '38px 2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto')
+      : (isRailingGolaMoulding
+          ? '2.2fr 0.8fr 0.8fr 1fr 1.5fr auto'
+          : '2.2fr 0.8fr 0.8fr 0.8fr 1fr 1.5fr auto')
+  };
 
   return (
     <div className="item-row-card" style={gridStyle}>
@@ -196,25 +206,27 @@ export const ChaukhatItemRow = memo(function ChaukhatItemRow({ item, unit, onCha
         />
       </div>
 
-      <div className="form-group" style={{ marginBottom: 0 }}>
-        <input
-          type="number"
-          className="form-input table-inline-input"
-          style={{ width: '100%', fontFamily: 'var(--font-display)' }}
-          value={width}
-          onChange={(e) => {
-            const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-            setWidth(val);
-          }}
-          onBlur={handleWidthBlur}
-          onKeyDown={handleKeyDown}
-          placeholder={`W (${unit === 'inches' ? 'IN' : 'FT'})`}
-          min={0}
-          step="any"
-          required
-          aria-label={`Width in ${unit}`}
-        />
-      </div>
+      {!isRailingGolaMoulding && (
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <input
+            type="number"
+            className="form-input table-inline-input"
+            style={{ width: '100%', fontFamily: 'var(--font-display)' }}
+            value={width}
+            onChange={(e) => {
+              const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+              setWidth(val);
+            }}
+            onBlur={handleWidthBlur}
+            onKeyDown={handleKeyDown}
+            placeholder={`W (${unit === 'inches' ? 'IN' : 'FT'})`}
+            min={0}
+            step="any"
+            required
+            aria-label={`Width in ${unit}`}
+          />
+        </div>
+      )}
 
       <div className="form-group" style={{ marginBottom: 0 }}>
         <input

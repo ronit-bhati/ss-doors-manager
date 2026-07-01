@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Trash2, Plus } from 'lucide-react';
 import { DoorItemRow } from '../components/DoorItemRow.tsx';
 import { ChaukhatItemRow } from '../components/ChaukhatItemRow.tsx';
 import { OrderSummary } from '../components/OrderSummary.tsx';
+import { formatDate } from '../lib/calculations.ts';
 
 interface Client {
   id: number;
@@ -22,6 +23,14 @@ interface OrderItem {
   quantity: number;
   rate: number;
   calculated_value: number;
+}
+
+interface Payment {
+  id: number;
+  order_id: number;
+  amount: number;
+  payment_date: string;
+  notes?: string;
 }
 
 interface Order {
@@ -48,8 +57,19 @@ interface Order {
   railings_amount: number;
   fix_gola_amount: number;
   moulding_amount: number;
+  doors_extra_label: string;
+  doors_extra_rate: number;
+  chaukhat_extra_label: string;
+  chaukhat_extra_rate: number;
+  railings_extra_label: string;
+  railings_extra_rate: number;
+  fix_gola_extra_label: string;
+  fix_gola_extra_rate: number;
+  moulding_extra_label: string;
+  moulding_extra_rate: number;
   total_value: number;
   items: OrderItem[];
+  payments: Payment[];
 }
 
 export function OrderDetailPage() {
@@ -63,13 +83,26 @@ export function OrderDetailPage() {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('pending');
   const [paymentStatus, setPaymentStatus] = useState('pending');
-  const [advancePaid, setAdvancePaid] = useState<number | ''>(0);
   const [loading, setLoading] = useState(true);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showAddRowMenu, setShowAddRowMenu] = useState(false);
   const [focusItemId, setFocusItemId] = useState<number | null>(null);
+
+  const [doorsExtraLabel, setDoorsExtraLabel] = useState('');
+  const [doorsExtraRate, setDoorsExtraRate] = useState<number | ''>(0);
+  const [chaukhatExtraLabel, setChaukhatExtraLabel] = useState('');
+  const [chaukhatExtraRate, setChaukhatExtraRate] = useState<number | ''>(0);
+  const [railingsExtraLabel, setRailingsExtraLabel] = useState('');
+  const [railingsExtraRate, setRailingsExtraRate] = useState<number | ''>(0);
+  const [fixGolaExtraLabel, setFixGolaExtraLabel] = useState('');
+  const [fixGolaExtraRate, setFixGolaExtraRate] = useState<number | ''>(0);
+  const [mouldingExtraLabel, setMouldingExtraLabel] = useState('');
+  const [mouldingExtraRate, setMouldingExtraRate] = useState<number | ''>(0);
+
+  const [newPaymentAmount, setNewPaymentAmount] = useState('');
+  const [newPaymentDate, setNewPaymentDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchOrderDetails = useCallback(async () => {
     if (!id) return;
@@ -85,7 +118,17 @@ export function OrderDetailPage() {
       setWoodType(orderData.wood_type || '');
       setStatus(orderData.order_status);
       setPaymentStatus(orderData.payment_status);
-      setAdvancePaid(orderData.advance_paid ?? 0);
+
+      setDoorsExtraLabel(orderData.doors_extra_label || '');
+      setDoorsExtraRate(orderData.doors_extra_rate ?? 0);
+      setChaukhatExtraLabel(orderData.chaukhat_extra_label || '');
+      setChaukhatExtraRate(orderData.chaukhat_extra_rate ?? 0);
+      setRailingsExtraLabel(orderData.railings_extra_label || '');
+      setRailingsExtraRate(orderData.railings_extra_rate ?? 0);
+      setFixGolaExtraLabel(orderData.fix_gola_extra_label || '');
+      setFixGolaExtraRate(orderData.fix_gola_extra_rate ?? 0);
+      setMouldingExtraLabel(orderData.moulding_extra_label || '');
+      setMouldingExtraRate(orderData.moulding_extra_rate ?? 0);
 
       // Fetch client
       const clientData = await window.api.getClient(orderData.client_id);
@@ -154,8 +197,13 @@ export function OrderDetailPage() {
         }
       }
 
-      // 1. Esc: Back to client page
+      // 1. Esc: close preview dialog first if open, otherwise back to client page
       if (e.key === 'Escape') {
+        if (previewDialogRef.current?.open) {
+          previewDialogRef.current.close();
+          e.preventDefault();
+          return;
+        }
         e.preventDefault();
         if (client) {
           navigate(`/client/${client.id}`);
@@ -215,6 +263,8 @@ export function OrderDetailPage() {
     try {
       setStatus(newStatus);
       await window.api.updateOrderStatus(order.id, newStatus);
+      const updated = await window.api.getOrder(order.id);
+      setOrder(updated);
       showToast(`Status updated to: ${newStatus.replace('_', ' ')}`);
     } catch (err) {
       console.error(err);
@@ -225,11 +275,9 @@ export function OrderDetailPage() {
   const handlePaymentStatusChange = async (newPayStatus: string) => {
     if (!order) return;
     setPaymentStatus(newPayStatus);
-    const finalAdvance = typeof advancePaid === 'number' ? advancePaid : 0;
     try {
       await window.api.updateOrderPaymentDetails(order.id, {
-        paymentStatus: newPayStatus,
-        advancePaid: finalAdvance
+        paymentStatus: newPayStatus
       });
       const updated = await window.api.getOrder(order.id);
       setOrder(updated);
@@ -239,19 +287,11 @@ export function OrderDetailPage() {
     }
   };
 
-  const handleAdvancePaidBlur = async () => {
-    if (!order) return;
-    const finalAdvance = typeof advancePaid === 'number' ? advancePaid : 0;
-    try {
-      await window.api.updateOrderPaymentDetails(order.id, {
-        paymentStatus,
-        advancePaid: finalAdvance
-      });
-      const updated = await window.api.getOrder(order.id);
-      setOrder(updated);
-      showToast('Advance paid updated.');
-    } catch (err) {
-      console.error(err);
+
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
     }
   };
 
@@ -259,6 +299,8 @@ export function OrderDetailPage() {
     if (!order) return;
     try {
       await window.api.updateOrderWoodType(order.id, woodType);
+      // Sync order state immediately so print/preview sees fresh value
+      setOrder((prev) => prev ? { ...prev, wood_type: woodType } : prev);
       showToast('Wood type saved.');
     } catch (err) {
       console.error(err);
@@ -266,10 +308,108 @@ export function OrderDetailPage() {
     }
   };
 
+  const handleExtraBlur = async (section: 'doors' | 'chaukhat' | 'railings' | 'fix_gola' | 'moulding') => {
+    if (!order) return;
+    let label = '';
+    let rate = 0;
+    if (section === 'doors') {
+      label = doorsExtraLabel;
+      rate = typeof doorsExtraRate === 'number' ? doorsExtraRate : 0;
+      await window.api.updateOrderExtras(order.id, { doorsExtraLabel: label, doorsExtraRate: rate });
+    } else if (section === 'chaukhat') {
+      label = chaukhatExtraLabel;
+      rate = typeof chaukhatExtraRate === 'number' ? chaukhatExtraRate : 0;
+      await window.api.updateOrderExtras(order.id, { chaukhatExtraLabel: label, chaukhatExtraRate: rate });
+    } else if (section === 'railings') {
+      label = railingsExtraLabel;
+      rate = typeof railingsExtraRate === 'number' ? railingsExtraRate : 0;
+      await window.api.updateOrderExtras(order.id, { railingsExtraLabel: label, railingsExtraRate: rate });
+    } else if (section === 'fix_gola') {
+      label = fixGolaExtraLabel;
+      rate = typeof fixGolaExtraRate === 'number' ? fixGolaExtraRate : 0;
+      await window.api.updateOrderExtras(order.id, { fixGolaExtraLabel: label, fixGolaExtraRate: rate });
+    } else if (section === 'moulding') {
+      label = mouldingExtraLabel;
+      rate = typeof mouldingExtraRate === 'number' ? mouldingExtraRate : 0;
+      await window.api.updateOrderExtras(order.id, { mouldingExtraLabel: label, mouldingExtraRate: rate });
+    }
+    const updated = await window.api.getOrder(order.id);
+    setOrder(updated);
+    showToast('Add-on details updated.');
+  };
+
+  const handleRemoveExtra = async (section: 'doors' | 'chaukhat' | 'railings' | 'fix_gola' | 'moulding') => {
+    if (!order) return;
+    if (section === 'doors') {
+      setDoorsExtraLabel('');
+      setDoorsExtraRate('');
+      await window.api.updateOrderExtras(order.id, { doorsExtraLabel: '', doorsExtraRate: 0 });
+    } else if (section === 'chaukhat') {
+      setChaukhatExtraLabel('');
+      setChaukhatExtraRate('');
+      await window.api.updateOrderExtras(order.id, { chaukhatExtraLabel: '', chaukhatExtraRate: 0 });
+    } else if (section === 'railings') {
+      setRailingsExtraLabel('');
+      setRailingsExtraRate('');
+      await window.api.updateOrderExtras(order.id, { railingsExtraLabel: '', railingsExtraRate: 0 });
+    } else if (section === 'fix_gola') {
+      setFixGolaExtraLabel('');
+      setFixGolaExtraRate('');
+      await window.api.updateOrderExtras(order.id, { fixGolaExtraLabel: '', fixGolaExtraRate: 0 });
+    } else if (section === 'moulding') {
+      setMouldingExtraLabel('');
+      setMouldingExtraRate('');
+      await window.api.updateOrderExtras(order.id, { mouldingExtraLabel: '', mouldingExtraRate: 0 });
+    }
+    const updated = await window.api.getOrder(order.id);
+    setOrder(updated);
+    showToast('Add-on removed.');
+  };
+
+  const handleAddPayment = async () => {
+    if (!order) return;
+    const amount = parseFloat(newPaymentAmount);
+    if (!amount || isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid payment amount.');
+      return;
+    }
+    if (!newPaymentDate) {
+      alert('Please select a payment date.');
+      return;
+    }
+    try {
+      await window.api.addOrderPayment(order.id, amount, newPaymentDate);
+      setNewPaymentAmount('');
+      const updated = await window.api.getOrder(order.id);
+      setOrder(updated);
+      showToast('Payment added successfully.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to add payment.');
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: number) => {
+    if (!order) return;
+    const confirmDelete = window.confirm('Are you sure you want to delete this payment record?');
+    if (!confirmDelete) return;
+    try {
+      await window.api.deleteOrderPayment(paymentId);
+      const updated = await window.api.getOrder(order.id);
+      setOrder(updated);
+      showToast('Payment record deleted.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete payment.');
+    }
+  };
+
   const handleNotesBlur = async () => {
     if (!order) return;
     try {
       await window.api.updateOrderNotes(order.id, notes);
+      // Sync order state immediately so print/preview sees fresh value
+      setOrder((prev) => prev ? { ...prev, notes } : prev);
       showToast('Notes saved.');
     } catch (err) {
       console.error(err);
@@ -476,7 +616,15 @@ export function OrderDetailPage() {
   };
 
   const handleExportPDF = () => {
-    previewDialogRef.current?.showModal();
+    // Blur any currently focused input so onBlur handlers fire and sync order state
+    // before the print preview opens, preventing stale wood type / notes
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    // Small tick to allow React state updates from blur handlers to settle
+    setTimeout(() => {
+      previewDialogRef.current?.showModal();
+    }, 50);
   };
 
   const showToast = (msg: string) => {
@@ -521,7 +669,7 @@ export function OrderDetailPage() {
           <div className="page-title-group">
             <h1 className="page-title" style={{ fontFamily: 'var(--font-body)' }}>Order Sheet #{order.id}</h1>
             <p className="page-subtitle" style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem' }}>
-              CLIENT: <span style={{ fontWeight: 800, color: 'var(--color-text-primary)' }}>{client.name.toUpperCase()}</span> | DATE: {new Date(order.order_date).toLocaleDateString()} | DOORS: {order.door_unit.toUpperCase()} | CHAUKHATS: {order.chaukhat_unit.toUpperCase()}
+              CLIENT: <span style={{ fontWeight: 800, color: 'var(--color-text-primary)' }}>{client.name.toUpperCase()}</span> | DATE: {formatDate(order.order_date)} | DOORS: {order.door_unit.toUpperCase()} | CHAUKHATS: {order.chaukhat_unit.toUpperCase()}
             </p>
           </div>
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -555,23 +703,11 @@ export function OrderDetailPage() {
               </select>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 0, flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-              <label htmlFor="advance-paid-input" className="form-label" style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.8rem' }}>ADVANCE PAID (₹):</label>
-              <input
-                id="advance-paid-input"
-                type="number"
-                className="form-input"
-                style={{ width: '130px', height: '38px', minHeight: 'auto', fontFamily: 'var(--font-display)', fontWeight: 700 }}
-                value={advancePaid}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                  setAdvancePaid(val);
-                }}
-                onBlur={handleAdvancePaidBlur}
-                disabled={paymentStatus === 'paid'}
-                min={0}
-                step="any"
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--color-border)', padding: '0.375rem 0.75rem', borderRadius: 'var(--border-radius)', height: '38px', backgroundColor: 'var(--color-bg-surface)' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>TOTAL PAID:</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>
+                ₹{(order?.advance_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
             
             <button className="btn btn-outline" onClick={handleExportPDF} disabled={pdfGenerating} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -658,6 +794,47 @@ export function OrderDetailPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={doorsExtraLabel}
+                    onChange={(e) => setDoorsExtraLabel(e.target.value)}
+                    onBlur={() => handleExtraBlur('doors')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / sqft)"
+                    value={doorsExtraRate}
+                    onChange={(e) => setDoorsExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onBlur={() => handleExtraBlur('doors')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {(doorsExtraLabel || doorsExtraRate) && (
+                    <button
+                      type="button"
+                      title="Remove Add-on"
+                      onClick={() => handleRemoveExtra('doors')}
+                      className="btn btn-outline hover-danger"
+                      style={{ padding: '0.25rem', height: '30px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', width: '30px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  {doorsExtraLabel && typeof doorsExtraRate === 'number' && doorsExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(order.doors_subtotal * doorsExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -727,6 +904,47 @@ export function OrderDetailPage() {
                       onSelect={handleSelectRow}
                     />
                   ))}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={chaukhatExtraLabel}
+                    onChange={(e) => setChaukhatExtraLabel(e.target.value)}
+                    onBlur={() => handleExtraBlur('chaukhat')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={chaukhatExtraRate}
+                    onChange={(e) => setChaukhatExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onBlur={() => handleExtraBlur('chaukhat')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {(chaukhatExtraLabel || chaukhatExtraRate) && (
+                    <button
+                      type="button"
+                      title="Remove Add-on"
+                      onClick={() => handleRemoveExtra('chaukhat')}
+                      className="btn btn-outline hover-danger"
+                      style={{ padding: '0.25rem', height: '30px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', width: '30px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  {chaukhatExtraLabel && typeof chaukhatExtraRate === 'number' && chaukhatExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(order.chaukhat_subtotal * chaukhatExtraRate).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -799,6 +1017,47 @@ export function OrderDetailPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={railingsExtraLabel}
+                    onChange={(e) => setRailingsExtraLabel(e.target.value)}
+                    onBlur={() => handleExtraBlur('railings')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={railingsExtraRate}
+                    onChange={(e) => setRailingsExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onBlur={() => handleExtraBlur('railings')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {(railingsExtraLabel || railingsExtraRate) && (
+                    <button
+                      type="button"
+                      title="Remove Add-on"
+                      onClick={() => handleRemoveExtra('railings')}
+                      className="btn btn-outline hover-danger"
+                      style={{ padding: '0.25rem', height: '30px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', width: '30px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  {railingsExtraLabel && typeof railingsExtraRate === 'number' && railingsExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(order.railings_subtotal * railingsExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -869,6 +1128,47 @@ export function OrderDetailPage() {
                       valueLabel="LENGTH"
                     />
                   ))}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={fixGolaExtraLabel}
+                    onChange={(e) => setFixGolaExtraLabel(e.target.value)}
+                    onBlur={() => handleExtraBlur('fix_gola')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={fixGolaExtraRate}
+                    onChange={(e) => setFixGolaExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onBlur={() => handleExtraBlur('fix_gola')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {(fixGolaExtraLabel || fixGolaExtraRate) && (
+                    <button
+                      type="button"
+                      title="Remove Add-on"
+                      onClick={() => handleRemoveExtra('fix_gola')}
+                      className="btn btn-outline hover-danger"
+                      style={{ padding: '0.25rem', height: '30px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', width: '30px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  {fixGolaExtraLabel && typeof fixGolaExtraRate === 'number' && fixGolaExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(order.fix_gola_subtotal * fixGolaExtraRate).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -941,6 +1241,47 @@ export function OrderDetailPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={mouldingExtraLabel}
+                    onChange={(e) => setMouldingExtraLabel(e.target.value)}
+                    onBlur={() => handleExtraBlur('moulding')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={mouldingExtraRate}
+                    onChange={(e) => setMouldingExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onBlur={() => handleExtraBlur('moulding')}
+                    onKeyDown={handleInputKeyDown}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {(mouldingExtraLabel || mouldingExtraRate) && (
+                    <button
+                      type="button"
+                      title="Remove Add-on"
+                      onClick={() => handleRemoveExtra('moulding')}
+                      className="btn btn-outline hover-danger"
+                      style={{ padding: '0.25rem', height: '30px', minHeight: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)', width: '30px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  {mouldingExtraLabel && typeof mouldingExtraRate === 'number' && mouldingExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(order.moulding_subtotal * mouldingExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -967,6 +1308,7 @@ export function OrderDetailPage() {
                   value={woodType}
                   onChange={(e) => setWoodType(e.target.value)}
                   onBlur={handleWoodTypeBlur}
+                  onKeyDown={handleInputKeyDown}
                   placeholder="e.g. Teak Wood"
                   maxLength={100}
                 />
@@ -989,6 +1331,82 @@ export function OrderDetailPage() {
               </div>
             </div>
 
+            {/* Payments Log Card */}
+            <div className="card" style={{ padding: '1.25rem', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius)', backgroundColor: 'var(--color-bg-surface)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.375rem', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Payments Log</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-display)' }}>
+                  Total: ₹{(order?.payments || []).reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
+                </span>
+              </h3>
+              
+              {/* Payment List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                {(order?.payments || []).length === 0 ? (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: 0, fontStyle: 'italic' }}>
+                    No payments recorded.
+                  </p>
+                ) : (
+                  (order?.payments || []).map((payment) => (
+                    <div key={payment.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '0.25rem 0', borderBottom: '1px dashed var(--color-border)' }}>
+                      <div>
+                        <span style={{ fontWeight: 700 }}>₹{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+                          ({formatDate(payment.payment_date)})
+                        </span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeletePayment(payment.id)}
+                        style={{ border: 'none', background: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                        className="hover-danger"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add Payment Form */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="number"
+                      placeholder="Amount ₹"
+                      value={newPaymentAmount}
+                      onChange={(e) => setNewPaymentAmount(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddPayment(); }}
+                      className="form-input"
+                      style={{ height: '32px', minHeight: 'auto', fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      min={0}
+                      step="any"
+                    />
+                  </div>
+                  <div style={{ flex: 1.2 }}>
+                    <input
+                      type="date"
+                      value={newPaymentDate}
+                      onChange={(e) => setNewPaymentDate(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddPayment(); }}
+                      className="form-input"
+                      style={{ height: '32px', minHeight: 'auto', fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddPayment}
+                  className="btn btn-outline"
+                  style={{ height: '32px', minHeight: 'auto', fontSize: '0.75rem', width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                  <Plus size={14} />
+                  <span>Add Payment</span>
+                </button>
+              </div>
+            </div>
+
             <OrderSummary
               doorsSubtotal={order.doors_subtotal}
               chaukhatSubtotal={order.chaukhat_subtotal}
@@ -1000,13 +1418,22 @@ export function OrderDetailPage() {
               railingsAmount={order.railings_amount}
               fixGolaAmount={order.fix_gola_amount}
               mouldingAmount={order.moulding_amount}
+              doorsExtraLabel={doorsExtraLabel}
+              doorsExtraRate={typeof doorsExtraRate === 'number' ? doorsExtraRate : 0}
+              chaukhatExtraLabel={chaukhatExtraLabel}
+              chaukhatExtraRate={typeof chaukhatExtraRate === 'number' ? chaukhatExtraRate : 0}
+              railingsExtraLabel={railingsExtraLabel}
+              railingsExtraRate={typeof railingsExtraRate === 'number' ? railingsExtraRate : 0}
+              fixGolaExtraLabel={fixGolaExtraLabel}
+              fixGolaExtraRate={typeof fixGolaExtraRate === 'number' ? fixGolaExtraRate : 0}
+              mouldingExtraLabel={mouldingExtraLabel}
+              mouldingExtraRate={typeof mouldingExtraRate === 'number' ? mouldingExtraRate : 0}
               advancePaid={order.advance_paid}
               paymentStatus={order.payment_status}
             />
           </div>
         </div>
       </div>
-
       {/* Modal Dialog for PDF Print Preview */}
       <dialog 
         ref={previewDialogRef} 
@@ -1051,18 +1478,16 @@ export function OrderDetailPage() {
               {order && client && (
                 <div className="print-invoice" style={{ boxShadow: 'none', border: 'none', margin: 0, padding: 0 }}>
                   {/* Shop Header */}
-                  <div className="print-header">
-                    <div className="print-shop-details">
-                      <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '1px', margin: 0 }}>ESTIMATE</h1>
-                    </div>
-                    <div className="print-invoice-meta">
-                      <p><strong>Sheet ID:</strong> <span className="print-number">#{order.id}</span></p>
-                      <p><strong>Date:</strong> <span className="print-number">{new Date(order.order_date).toLocaleDateString()}</span></p>
+                  <div className="print-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '2px solid var(--color-print-border)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '1px', margin: 0, textAlign: 'center' }}>ESTIMATE</h1>
+                    <div className="print-invoice-meta" style={{ display: 'flex', gap: '2rem', justifyContent: 'center', marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                      <p style={{ margin: 0 }}><strong>Sheet ID:</strong> <span className="print-number">#{order.id}</span></p>
+                      <p style={{ margin: 0 }}><strong>Date:</strong> <span className="print-number">{formatDate(order.order_date)}</span></p>
                     </div>
                   </div>
 
                   {/* Customer Billing Info */}
-                  <div className="print-billing-grid">
+                  <div className="print-billing-grid" style={{ marginBottom: '0.75rem', gap: '1.5rem' }}>
                     <div className="print-bill-to">
                       <h3>Customer Details</h3>
                       <p><strong>Name:</strong> {client.name}</p>
@@ -1074,25 +1499,30 @@ export function OrderDetailPage() {
                       {order.wood_type && (
                         <p><strong>Wood Type:</strong> <span className="print-number" style={{ textTransform: 'uppercase' }}>{order.wood_type}</span></p>
                       )}
+                      {order.notes && (
+                        <div style={{ marginTop: '0.5rem' }}>
+                          <p style={{ margin: 0 }}><strong>Order Notes:</strong></p>
+                          <p style={{ margin: '0.15rem 0 0 0', whiteSpace: 'pre-wrap', fontSize: '0.8rem', color: '#4b5563', lineHeight: 1.3 }}>{order.notes}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Doors Table */}
                   {doorItems.length > 0 && (
-                    <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
                         DOORS & WINDOWS MEASUREMENTS
                       </h3>
                       <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.door_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.door_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Area (sqft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / sqft)</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1104,9 +1534,6 @@ export function OrderDetailPage() {
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} sqft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
-                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1116,20 +1543,19 @@ export function OrderDetailPage() {
 
                   {/* Chaukhats Table */}
                   {chaukhatItems.length > 0 && (
-                    <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
                         CHAUKHATS (FRAMES) MEASUREMENTS
                       </h3>
                       <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.chaukhat_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1141,9 +1567,6 @@ export function OrderDetailPage() {
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
-                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1153,20 +1576,19 @@ export function OrderDetailPage() {
 
                   {/* Railings Table */}
                   {railingItems.length > 0 && (
-                    <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
                         RAILINGS MEASUREMENTS
                       </h3>
                       <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.railing_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1178,9 +1600,6 @@ export function OrderDetailPage() {
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
-                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1190,20 +1609,19 @@ export function OrderDetailPage() {
 
                   {/* Fix Gola Table */}
                   {fixGolaItems.length > 0 && (
-                    <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
                         FIX GOLA MEASUREMENTS
                       </h3>
                       <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.fix_gola_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1215,9 +1633,6 @@ export function OrderDetailPage() {
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
-                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1227,20 +1642,19 @@ export function OrderDetailPage() {
 
                   {/* Moulding Table */}
                   {mouldingItems.length > 0 && (
-                    <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, borderBottom: '1px solid var(--color-print-border)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
                         MOULDING MEASUREMENTS
                       </h3>
                       <table className="print-table" style={{ border: '1px solid var(--color-print-border)', width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
+                            <th style={{ width: '35%', textAlign: 'left', padding: '0.5rem' }}>Description / Label</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Height ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Width ({order.moulding_unit === 'inches' ? 'in' : 'ft'})</th>
                             <th style={{ textAlign: 'center', padding: '0.5rem' }}>Qty</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Running Length (ft)</th>
                             <th style={{ textAlign: 'right', padding: '0.5rem' }}>Rate (₹ / ft)</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total Cost (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1252,85 +1666,109 @@ export function OrderDetailPage() {
                               <td style={{ textAlign: 'center', padding: '0.5rem' }}>{item.quantity}</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>{item.calculated_value.toFixed(2)} ft</td>
                               <td style={{ textAlign: 'right', padding: '0.5rem' }}>₹{item.rate.toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: 600, padding: '0.5rem' }}>
-                                ₹{(item.calculated_value * item.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                  )}
-
-                  {/* Calculations & Totals Summary */}
-                  <div className="print-summary-box" style={{ marginLeft: 'auto', width: '320px', marginTop: '1.5rem' }}>
+                  )}                  <div className="print-summary-box" style={{ marginLeft: 'auto', width: '320px', marginTop: '1.5rem', gap: '0.25rem' }}>
                     {doorItems.length > 0 && order.doors_amount > 0 && (
                       <>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Doors Area Subtotal:</span>
                           <span>{order.doors_subtotal.toFixed(2)} sqft</span>
                         </div>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span><strong>Doors Total Cost:</strong></span>
-                          <span><strong>₹{order.doors_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Doors Total Cost:</span>
+                          <span>₹{order.doors_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                        {order.doors_extra_label && order.doors_extra_rate > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Doors {order.doors_extra_label} (₹{order.doors_extra_rate}/sqft):</span>
+                            <span>₹{(order.doors_subtotal * order.doors_extra_rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div style={{ height: '4px' }} />
                       </>
                     )}
 
                     {chaukhatItems.length > 0 && order.chaukhat_amount > 0 && (
                       <>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Chaukhats Length Subtotal:</span>
                           <span>{order.chaukhat_subtotal.toFixed(2)} ft</span>
                         </div>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span><strong>Chaukhats Total Cost:</strong></span>
-                          <span><strong>₹{order.chaukhat_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Chaukhats Total Cost:</span>
+                          <span>₹{order.chaukhat_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                        {order.chaukhat_extra_label && order.chaukhat_extra_rate > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Chaukhats {order.chaukhat_extra_label} (₹{order.chaukhat_extra_rate}/ft):</span>
+                            <span>₹{(order.chaukhat_subtotal * order.chaukhat_extra_rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div style={{ height: '4px' }} />
                       </>
                     )}
 
                     {railingItems.length > 0 && order.railings_amount > 0 && (
                       <>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Railings Length Subtotal:</span>
                           <span>{order.railings_subtotal.toFixed(2)} ft</span>
                         </div>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span><strong>Railings Total Cost:</strong></span>
-                          <span><strong>₹{order.railings_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Railings Total Cost:</span>
+                          <span>₹{order.railings_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                        {order.railings_extra_label && order.railings_extra_rate > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Railings {order.railings_extra_label} (₹{order.railings_extra_rate}/ft):</span>
+                            <span>₹{(order.railings_subtotal * order.railings_extra_rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div style={{ height: '4px' }} />
                       </>
                     )}
 
                     {fixGolaItems.length > 0 && order.fix_gola_amount > 0 && (
                       <>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Fix Gola Length Subtotal:</span>
                           <span>{order.fix_gola_subtotal.toFixed(2)} ft</span>
                         </div>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span><strong>Fix Gola Total Cost:</strong></span>
-                          <span><strong>₹{order.fix_gola_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Fix Gola Total Cost:</span>
+                          <span>₹{order.fix_gola_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                        {order.fix_gola_extra_label && order.fix_gola_extra_rate > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Fix Gola {order.fix_gola_extra_label} (₹{order.fix_gola_extra_rate}/ft):</span>
+                            <span>₹{(order.fix_gola_subtotal * order.fix_gola_extra_rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div style={{ height: '4px' }} />
                       </>
                     )}
 
                     {mouldingItems.length > 0 && order.moulding_amount > 0 && (
                       <>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>Moulding Length Subtotal:</span>
                           <span>{order.moulding_subtotal.toFixed(2)} ft</span>
                         </div>
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span><strong>Moulding Total Cost:</strong></span>
-                          <span><strong>₹{order.moulding_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Moulding Total Cost:</span>
+                          <span>₹{order.moulding_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-border)', margin: '0.4rem 0' }} />
+                        {order.moulding_extra_label && order.moulding_extra_rate > 0 && (
+                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Moulding {order.moulding_extra_label} (₹{order.moulding_extra_rate}/ft):</span>
+                            <span>₹{(order.moulding_subtotal * order.moulding_extra_rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div style={{ height: '4px' }} />
                       </>
                     )}
 
@@ -1339,36 +1777,25 @@ export function OrderDetailPage() {
                       <span>₹{order.total_value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
 
-                    <div style={{ width: '320px', height: '1px', backgroundColor: 'var(--color-print-text)', margin: '0.4rem 0' }} />
-
-                    {order.payment_status === 'paid' ? (
-                      <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 800, fontSize: '0.9rem' }}>
-                        <span>PAYMENT STATUS:</span>
-                        <span>PAID</span>
-                      </div>
-                    ) : (
-                      <>
-                        {order.advance_paid > 0 && (
-                          <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, marginBottom: '0.25rem' }}>
-                            <span>Advance Paid:</span>
-                            <span>₹{order.advance_paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                        )}
-                        <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: '#b45309', fontWeight: 800, fontSize: '0.9rem', borderTop: '1px dashed var(--color-print-border)', paddingTop: '0.25rem', marginTop: '0.25rem' }}>
-                          <span>BALANCE DUE:</span>
-                          <span>₹{Math.max(0, order.total_value - order.advance_paid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    {order.payments && order.payments.length > 0 ? (
+                      order.payments.map((p: any) => (
+                        <div key={p.id} className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#4b5563' }}>
+                          <span>Payment ({formatDate(p.payment_date)}):</span>
+                          <span>₹{p.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      ))
+                    ) : null}
 
-                  {/* Notes Block */}
-                  {order.notes && (
-                    <div className="print-notes" style={{ marginTop: '2rem', borderTop: '1px solid var(--color-print-border)', paddingTop: '1rem' }}>
-                      <h4 style={{ margin: '0 0 0.5rem 0' }}>Order Specifications / Notes</h4>
-                      <p style={{ margin: 0 }}>{order.notes}</p>
+                    <div className="print-summary-row" style={{ display: 'flex', justifyContent: 'space-between', color: order.payment_status === 'paid' ? '#10b981' : '#b45309', fontWeight: 800, fontSize: '0.9rem', borderTop: '1px dashed var(--color-print-border)', paddingTop: '0.25rem', marginTop: '0.25rem' }}>
+                      <span>BALANCE DUE:</span>
+                      <span>
+                        {order.payment_status === 'paid' 
+                          ? '₹0.00 (PAID)' 
+                          : `₹${Math.max(0, order.total_value - order.advance_paid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        }
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>

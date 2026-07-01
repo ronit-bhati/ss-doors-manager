@@ -34,6 +34,16 @@ contextBridge.exposeInMainWorld('api', {
       fixGolaUnit: string;
       mouldingUnit: string;
       woodType?: string;
+      doorsExtraLabel?: string;
+      doorsExtraRate?: number;
+      chaukhatExtraLabel?: string;
+      chaukhatExtraRate?: number;
+      railingsExtraLabel?: string;
+      railingsExtraRate?: number;
+      fixGolaExtraLabel?: string;
+      fixGolaExtraRate?: number;
+      mouldingExtraLabel?: string;
+      mouldingExtraRate?: number;
     };
     items: OrderItemInput[];
   }) =>
@@ -48,8 +58,14 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('updateOrderWoodType', orderId, woodType),
   updateOrderStatus: (orderId: number, status: string) => 
     ipcRenderer.invoke('updateOrderStatus', orderId, status),
-  updateOrderPaymentDetails: (orderId: number, details: { paymentStatus: string; advancePaid: number }) => 
+  updateOrderPaymentDetails: (orderId: number, details: { paymentStatus: string }) => 
     ipcRenderer.invoke('updateOrderPaymentDetails', orderId, details),
+  updateOrderExtras: (orderId: number, fields: any) => 
+    ipcRenderer.invoke('updateOrderExtras', orderId, fields),
+  addOrderPayment: (orderId: number, amount: number, paymentDate: string, notes?: string) => 
+    ipcRenderer.invoke('addOrderPayment', orderId, amount, paymentDate, notes),
+  deleteOrderPayment: (paymentId: number) => 
+    ipcRenderer.invoke('deleteOrderPayment', paymentId),
   addOrderItem: (orderId: number, item: OrderItemInput) => 
     ipcRenderer.invoke('addOrderItem', orderId, item),
   updateOrderItem: (itemId: number, fields: Partial<OrderItemInput>) => 

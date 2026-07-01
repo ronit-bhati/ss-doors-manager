@@ -40,6 +40,16 @@ export function NewOrderPage() {
   const [mouldingRate, setMouldingRate] = useState<number | ''>('');
   const [woodType, setWoodType] = useState('');
   const [notes, setNotes] = useState('');
+  const [doorsExtraLabel, setDoorsExtraLabel] = useState('');
+  const [doorsExtraRate, setDoorsExtraRate] = useState<number | ''>('');
+  const [chaukhatExtraLabel, setChaukhatExtraLabel] = useState('');
+  const [chaukhatExtraRate, setChaukhatExtraRate] = useState<number | ''>('');
+  const [railingsExtraLabel, setRailingsExtraLabel] = useState('');
+  const [railingsExtraRate, setRailingsExtraRate] = useState<number | ''>('');
+  const [fixGolaExtraLabel, setFixGolaExtraLabel] = useState('');
+  const [fixGolaExtraRate, setFixGolaExtraRate] = useState<number | ''>('');
+  const [mouldingExtraLabel, setMouldingExtraLabel] = useState('');
+  const [mouldingExtraRate, setMouldingExtraRate] = useState<number | ''>('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedTempIds, setSelectedTempIds] = useState<string[]>([]);
@@ -462,7 +472,17 @@ export function NewOrderPage() {
           railingUnit,
           fixGolaUnit,
           mouldingUnit,
-          woodType
+          woodType,
+          doorsExtraLabel,
+          doorsExtraRate: typeof doorsExtraRate === 'number' ? doorsExtraRate : 0,
+          chaukhatExtraLabel,
+          chaukhatExtraRate: typeof chaukhatExtraRate === 'number' ? chaukhatExtraRate : 0,
+          railingsExtraLabel,
+          railingsExtraRate: typeof railingsExtraRate === 'number' ? railingsExtraRate : 0,
+          fixGolaExtraLabel,
+          fixGolaExtraRate: typeof fixGolaExtraRate === 'number' ? fixGolaExtraRate : 0,
+          mouldingExtraLabel,
+          mouldingExtraRate: typeof mouldingExtraRate === 'number' ? mouldingExtraRate : 0
         },
         items: items.map((item) => ({
           item_type: item.item_type,
@@ -694,6 +714,32 @@ export function NewOrderPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={doorsExtraLabel}
+                    onChange={(e) => setDoorsExtraLabel(e.target.value)}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / sqft)"
+                    value={doorsExtraRate}
+                    onChange={(e) => setDoorsExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {doorsExtraLabel && typeof doorsExtraRate === 'number' && doorsExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(doorsSubtotal * doorsExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -763,6 +809,32 @@ export function NewOrderPage() {
                       onSelect={handleSelectRow}
                     />
                   ))}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={chaukhatExtraLabel}
+                    onChange={(e) => setChaukhatExtraLabel(e.target.value)}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={chaukhatExtraRate}
+                    onChange={(e) => setChaukhatExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {chaukhatExtraLabel && typeof chaukhatExtraRate === 'number' && chaukhatExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(chaukhatSubtotal * chaukhatExtraRate).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -835,6 +907,32 @@ export function NewOrderPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={railingsExtraLabel}
+                    onChange={(e) => setRailingsExtraLabel(e.target.value)}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={railingsExtraRate}
+                    onChange={(e) => setRailingsExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {railingsExtraLabel && typeof railingsExtraRate === 'number' && railingsExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(railingsSubtotal * railingsExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -905,6 +1003,32 @@ export function NewOrderPage() {
                       valueLabel="LENGTH"
                     />
                   ))}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={fixGolaExtraLabel}
+                    onChange={(e) => setFixGolaExtraLabel(e.target.value)}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={fixGolaExtraRate}
+                    onChange={(e) => setFixGolaExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {fixGolaExtraLabel && typeof fixGolaExtraRate === 'number' && fixGolaExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(fixGolaSubtotal * fixGolaExtraRate).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -977,6 +1101,32 @@ export function NewOrderPage() {
                     />
                   ))}
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-app)', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Polish / Paint Add-on:</span>
+                  <input
+                    type="text"
+                    placeholder="Add-on Name (e.g. Polish)"
+                    value={mouldingExtraLabel}
+                    onChange={(e) => setMouldingExtraLabel(e.target.value)}
+                    className="form-input"
+                    style={{ width: '200px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price (₹ / ft)"
+                    value={mouldingExtraRate}
+                    onChange={(e) => setMouldingExtraRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="form-input"
+                    style={{ width: '130px', height: '30px', minHeight: 'auto', fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                    min={0}
+                    step="any"
+                  />
+                  {mouldingExtraLabel && typeof mouldingExtraRate === 'number' && mouldingExtraRate > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 700, marginLeft: 'auto' }}>
+                      Add-on Cost: ₹{(mouldingSubtotal * mouldingExtraRate).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1035,6 +1185,16 @@ export function NewOrderPage() {
               railingsAmount={railingsAmount}
               fixGolaAmount={fixGolaAmount}
               mouldingAmount={mouldingAmount}
+              doorsExtraLabel={doorsExtraLabel}
+              doorsExtraRate={typeof doorsExtraRate === 'number' ? doorsExtraRate : 0}
+              chaukhatExtraLabel={chaukhatExtraLabel}
+              chaukhatExtraRate={typeof chaukhatExtraRate === 'number' ? chaukhatExtraRate : 0}
+              railingsExtraLabel={railingsExtraLabel}
+              railingsExtraRate={typeof railingsExtraRate === 'number' ? railingsExtraRate : 0}
+              fixGolaExtraLabel={fixGolaExtraLabel}
+              fixGolaExtraRate={typeof fixGolaExtraRate === 'number' ? fixGolaExtraRate : 0}
+              mouldingExtraLabel={mouldingExtraLabel}
+              mouldingExtraRate={typeof mouldingExtraRate === 'number' ? mouldingExtraRate : 0}
             />
           </div>
         </div>

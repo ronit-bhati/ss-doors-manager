@@ -23,6 +23,7 @@ type OrderItemInput = {
   rate: number;
 };
 
+
 type ActiveDb = ReturnType<typeof getDb>;
 
 type OrderUnits = {
@@ -48,6 +49,16 @@ function sanitizeOrderInput(data: {
   fixGolaUnit: string;
   mouldingUnit: string;
   woodType?: string;
+  doorsExtraLabel?: string;
+  doorsExtraRate?: number;
+  chaukhatExtraLabel?: string;
+  chaukhatExtraRate?: number;
+  railingsExtraLabel?: string;
+  railingsExtraRate?: number;
+  fixGolaExtraLabel?: string;
+  fixGolaExtraRate?: number;
+  mouldingExtraLabel?: string;
+  mouldingExtraRate?: number;
 }) {
   return {
     clientId: assertPositiveInt(data?.clientId, 'Client ID'),
@@ -57,7 +68,17 @@ function sanitizeOrderInput(data: {
     railingUnit: assertEnum(data?.railingUnit, UNIT_VALUES, 'Railing unit'),
     fixGolaUnit: assertEnum(data?.fixGolaUnit, UNIT_VALUES, 'Fix gola unit'),
     mouldingUnit: assertEnum(data?.mouldingUnit, UNIT_VALUES, 'Moulding unit'),
-    woodType: sanitizeText(data?.woodType, 'Wood type', 100)
+    woodType: sanitizeText(data?.woodType, 'Wood type', 100),
+    doorsExtraLabel: sanitizeText(data?.doorsExtraLabel ?? '', 'Doors extra label', 100),
+    doorsExtraRate: assertFiniteNumber(data?.doorsExtraRate ?? 0, 'Doors extra rate', { min: 0 }),
+    chaukhatExtraLabel: sanitizeText(data?.chaukhatExtraLabel ?? '', 'Chaukhat extra label', 100),
+    chaukhatExtraRate: assertFiniteNumber(data?.chaukhatExtraRate ?? 0, 'Chaukhat extra rate', { min: 0 }),
+    railingsExtraLabel: sanitizeText(data?.railingsExtraLabel ?? '', 'Railings extra label', 100),
+    railingsExtraRate: assertFiniteNumber(data?.railingsExtraRate ?? 0, 'Railings extra rate', { min: 0 }),
+    fixGolaExtraLabel: sanitizeText(data?.fixGolaExtraLabel ?? '', 'Fix gola extra label', 100),
+    fixGolaExtraRate: assertFiniteNumber(data?.fixGolaExtraRate ?? 0, 'Fix gola extra rate', { min: 0 }),
+    mouldingExtraLabel: sanitizeText(data?.mouldingExtraLabel ?? '', 'Moulding extra label', 100),
+    mouldingExtraRate: assertFiniteNumber(data?.mouldingExtraRate ?? 0, 'Moulding extra rate', { min: 0 })
   };
 }
 
@@ -107,27 +128,58 @@ function insertOrderItem(db: ActiveDb, orderId: number, item: OrderItemInput, or
   );
 }
 
+type OrderExtrasRow = {
+  doors_extra_rate: number;
+  chaukhat_extra_rate: number;
+  railings_extra_rate: number;
+  fix_gola_extra_rate: number;
+  moulding_extra_rate: number;
+  total_value: number;
+  payment_status: string;
+  advance_paid: number;
+};
+
 // Helper to recalculate and persist totals for an order
 export function recalculateAndUpdateOrderTotals(db: ActiveDb, orderId: number) {
+  // Fetch current extra rates from orders table
+  const order = db.prepare(`
+    SELECT doors_extra_rate, chaukhat_extra_rate, railings_extra_rate, fix_gola_extra_rate, moulding_extra_rate, total_value, payment_status, advance_paid
+    FROM orders WHERE id = ?
+  `).get(orderId) as OrderExtrasRow | undefined;
+
+  if (!order) return;
+
+  const extras = {
+    doorsExtraRate: order.doors_extra_rate || 0,
+    chaukhatExtraRate: order.chaukhat_extra_rate || 0,
+    railingsExtraRate: order.railings_extra_rate || 0,
+    fixGolaExtraRate: order.fix_gola_extra_rate || 0,
+    mouldingExtraRate: order.moulding_extra_rate || 0,
+  };
+
   // 1. Fetch all items for this order
   const items = db
     .prepare('SELECT item_type, calculated_value, rate FROM order_items WHERE order_id = ?')
     .all(orderId) as Array<{ item_type: string; calculated_value: number; rate: number }>;
 
   // 2. Compute totals
-  const totals = calculateOrderTotals(items);
+  const totals = calculateOrderTotals(items, extras);
+
+  // Auto-update payment status if payment is in full
+  const finalAdvance = order.advance_paid || 0;
+  const newPaymentStatus = (finalAdvance >= totals.totalAmount && totals.totalAmount > 0) ? 'paid' : order.payment_status;
 
   // 3. Update the order row in the database
   db.prepare(`
     UPDATE orders 
     SET doors_subtotal = ?, chaukhat_subtotal = ?, railings_subtotal = ?, fix_gola_subtotal = ?, moulding_subtotal = ?,
         doors_amount = ?, chaukhat_amount = ?, railings_amount = ?, fix_gola_amount = ?, moulding_amount = ?,
-        total_value = ? 
+        total_value = ?, payment_status = ? 
     WHERE id = ?
   `).run(
     totals.doorsSubtotal, totals.chaukhatSubtotal, totals.railingsSubtotal, totals.fixGolaSubtotal, totals.mouldingSubtotal,
     totals.doorsAmount, totals.chaukhatAmount, totals.railingsAmount, totals.fixGolaAmount, totals.mouldingAmount,
-    totals.totalAmount, orderId
+    totals.totalAmount, newPaymentStatus, orderId
   );
 }
 
@@ -135,20 +187,9 @@ export function registerOrdersHandlers() {
   const db = getDb();
 
   // Create new order
-  ipcMain.handle('createOrder', (_event, { 
-    clientId, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, woodType 
-  }: { 
-    clientId: number; 
-    notes?: string; 
-    doorUnit: string; 
-    chaukhatUnit: string; 
-    railingUnit: string;
-    fixGolaUnit: string;
-    mouldingUnit: string;
-    woodType?: string 
-  }) => {
+  ipcMain.handle('createOrder', (_event, payload: any) => {
     assertLicensed();
-    const data = sanitizeOrderInput({ clientId, notes, doorUnit, chaukhatUnit, railingUnit, fixGolaUnit, mouldingUnit, woodType });
+    const data = sanitizeOrderInput(payload);
     const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(data.clientId);
     if (!client) {
       throw new Error('Client not found.');
@@ -157,26 +198,25 @@ export function registerOrdersHandlers() {
     const stmt = db.prepare(`
       INSERT INTO orders (client_id, notes, door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit, wood_type, 
                           doors_subtotal, chaukhat_subtotal, railings_subtotal, fix_gola_subtotal, moulding_subtotal, 
-                          doors_amount, chaukhat_amount, railings_amount, fix_gola_amount, moulding_amount, total_value)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                          doors_amount, chaukhat_amount, railings_amount, fix_gola_amount, moulding_amount, total_value,
+                          doors_extra_label, doors_extra_rate, chaukhat_extra_label, chaukhat_extra_rate,
+                          railings_extra_label, railings_extra_rate, fix_gola_extra_label, fix_gola_extra_rate,
+                          moulding_extra_label, moulding_extra_rate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
-      data.clientId, data.notes, data.doorUnit, data.chaukhatUnit, data.railingUnit, data.fixGolaUnit, data.mouldingUnit, data.woodType
+      data.clientId, data.notes, data.doorUnit, data.chaukhatUnit, data.railingUnit, data.fixGolaUnit, data.mouldingUnit, data.woodType,
+      data.doorsExtraLabel, data.doorsExtraRate,
+      data.chaukhatExtraLabel, data.chaukhatExtraRate,
+      data.railingsExtraLabel, data.railingsExtraRate,
+      data.fixGolaExtraLabel, data.fixGolaExtraRate,
+      data.mouldingExtraLabel, data.mouldingExtraRate
     );
     return { id: info.lastInsertRowid };
   });
 
   ipcMain.handle('createOrderWithItems', (_event, payload: {
-    order: {
-      clientId: number;
-      notes?: string;
-      doorUnit: string;
-      chaukhatUnit: string;
-      railingUnit: string;
-      fixGolaUnit: string;
-      mouldingUnit: string;
-      woodType?: string;
-    };
+    order: any;
     items: OrderItemInput[];
   }) => {
     assertLicensed();
@@ -198,10 +238,18 @@ export function registerOrdersHandlers() {
       const info = db.prepare(`
         INSERT INTO orders (client_id, notes, door_unit, chaukhat_unit, railing_unit, fix_gola_unit, moulding_unit, wood_type, 
                             doors_subtotal, chaukhat_subtotal, railings_subtotal, fix_gola_subtotal, moulding_subtotal, 
-                            doors_amount, chaukhat_amount, railings_amount, fix_gola_amount, moulding_amount, total_value)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                            doors_amount, chaukhat_amount, railings_amount, fix_gola_amount, moulding_amount, total_value,
+                            doors_extra_label, doors_extra_rate, chaukhat_extra_label, chaukhat_extra_rate,
+                            railings_extra_label, railings_extra_rate, fix_gola_extra_label, fix_gola_extra_rate,
+                            moulding_extra_label, moulding_extra_rate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        data.clientId, data.notes, data.doorUnit, data.chaukhatUnit, data.railingUnit, data.fixGolaUnit, data.mouldingUnit, data.woodType
+        data.clientId, data.notes, data.doorUnit, data.chaukhatUnit, data.railingUnit, data.fixGolaUnit, data.mouldingUnit, data.woodType,
+        data.doorsExtraLabel, data.doorsExtraRate,
+        data.chaukhatExtraLabel, data.chaukhatExtraRate,
+        data.railingsExtraLabel, data.railingsExtraRate,
+        data.fixGolaExtraLabel, data.fixGolaExtraRate,
+        data.mouldingExtraLabel, data.mouldingExtraRate
       );
       const orderId = Number(info.lastInsertRowid);
       const orderUnits = {
@@ -228,14 +276,15 @@ export function registerOrdersHandlers() {
     return db.prepare('SELECT * FROM orders WHERE client_id = ? ORDER BY order_date DESC').all(assertPositiveInt(clientId, 'Client ID'));
   });
 
-  // Get full order details, including line items
+  // Get full order details, including line items and payments
   ipcMain.handle('getOrder', (_event, orderId: number) => {
     assertLicensed();
     const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(cleanOrderId);
     if (!order) return null;
     const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(cleanOrderId);
-    return { ...order, items };
+    const payments = db.prepare('SELECT * FROM payments WHERE order_id = ? ORDER BY payment_date ASC').all(cleanOrderId);
+    return { ...order, items, payments };
   });
 
   // Update order notes
@@ -268,12 +317,12 @@ export function registerOrdersHandlers() {
     return true;
   });
 
-  // Update order payment status and advance paid
-  ipcMain.handle('updateOrderPaymentDetails', (_event, orderId: number, { paymentStatus, advancePaid }: { paymentStatus: string; advancePaid: number }) => {
+  // Update order payment status (manual override — does NOT touch advance_paid,
+  // which is exclusively managed by the payments table via addOrderPayment / deleteOrderPayment)
+  ipcMain.handle('updateOrderPaymentDetails', (_event, orderId: number, { paymentStatus }: { paymentStatus: string }) => {
     assertLicensed();
-    db.prepare('UPDATE orders SET payment_status = ?, advance_paid = ? WHERE id = ?').run(
+    db.prepare('UPDATE orders SET payment_status = ? WHERE id = ?').run(
       assertEnum(paymentStatus, PAYMENT_STATUSES, 'Payment status'),
-      assertFiniteNumber(advancePaid, 'Advance paid', { min: 0, max: 1_000_000_000 }),
       assertPositiveInt(orderId, 'Order ID')
     );
     return true;
@@ -353,6 +402,125 @@ export function registerOrdersHandlers() {
   ipcMain.handle('deleteOrder', (_event, orderId: number) => {
     assertLicensed();
     db.prepare('DELETE FROM orders WHERE id = ?').run(assertPositiveInt(orderId, 'Order ID'));
+    return true;
+  });
+
+  // Update order extras & recalculate
+  ipcMain.handle('updateOrderExtras', (_event, orderId: number, fields: {
+    doorsExtraLabel?: string;
+    doorsExtraRate?: number;
+    chaukhatExtraLabel?: string;
+    chaukhatExtraRate?: number;
+    railingsExtraLabel?: string;
+    railingsExtraRate?: number;
+    fixGolaExtraLabel?: string;
+    fixGolaExtraRate?: number;
+    mouldingExtraLabel?: string;
+    mouldingExtraRate?: number;
+  }) => {
+    assertLicensed();
+    const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
+    
+    const current = db.prepare(`
+      SELECT doors_extra_label, doors_extra_rate, chaukhat_extra_label, chaukhat_extra_rate,
+             railings_extra_label, railings_extra_rate, fix_gola_extra_label, fix_gola_extra_rate,
+             moulding_extra_label, moulding_extra_rate
+      FROM orders WHERE id = ?
+    `).get(cleanOrderId) as any;
+    if (!current) throw new Error('Order not found');
+
+    const merged = {
+      doorsExtraLabel: fields.doorsExtraLabel !== undefined ? sanitizeText(fields.doorsExtraLabel, 'Doors extra label', 100) : current.doors_extra_label,
+      doorsExtraRate: fields.doorsExtraRate !== undefined ? assertFiniteNumber(fields.doorsExtraRate, 'Doors extra rate', { min: 0 }) : current.doors_extra_rate,
+      
+      chaukhatExtraLabel: fields.chaukhatExtraLabel !== undefined ? sanitizeText(fields.chaukhatExtraLabel, 'Chaukhat extra label', 100) : current.chaukhat_extra_label,
+      chaukhatExtraRate: fields.chaukhatExtraRate !== undefined ? assertFiniteNumber(fields.chaukhatExtraRate, 'Chaukhat extra rate', { min: 0 }) : current.chaukhat_extra_rate,
+      
+      railingsExtraLabel: fields.railingsExtraLabel !== undefined ? sanitizeText(fields.railingsExtraLabel, 'Railings extra label', 100) : current.railings_extra_label,
+      railingsExtraRate: fields.railingsExtraRate !== undefined ? assertFiniteNumber(fields.railingsExtraRate, 'Railings extra rate', { min: 0 }) : current.railings_extra_rate,
+      
+      fixGolaExtraLabel: fields.fixGolaExtraLabel !== undefined ? sanitizeText(fields.fixGolaExtraLabel, 'Fix gola extra label', 100) : current.fix_gola_extra_label,
+      fixGolaExtraRate: fields.fixGolaExtraRate !== undefined ? assertFiniteNumber(fields.fixGolaExtraRate, 'Fix gola extra rate', { min: 0 }) : current.fix_gola_extra_rate,
+      
+      mouldingExtraLabel: fields.mouldingExtraLabel !== undefined ? sanitizeText(fields.mouldingExtraLabel, 'Moulding extra label', 100) : current.moulding_extra_label,
+      mouldingExtraRate: fields.mouldingExtraRate !== undefined ? assertFiniteNumber(fields.mouldingExtraRate, 'Moulding extra rate', { min: 0 }) : current.moulding_extra_rate,
+    };
+
+    db.prepare(`
+      UPDATE orders
+      SET doors_extra_label = ?, doors_extra_rate = ?,
+          chaukhat_extra_label = ?, chaukhat_extra_rate = ?,
+          railings_extra_label = ?, railings_extra_rate = ?,
+          fix_gola_extra_label = ?, fix_gola_extra_rate = ?,
+          moulding_extra_label = ?, moulding_extra_rate = ?
+      WHERE id = ?
+    `).run(
+      merged.doorsExtraLabel, merged.doorsExtraRate,
+      merged.chaukhatExtraLabel, merged.chaukhatExtraRate,
+      merged.railingsExtraLabel, merged.railingsExtraRate,
+      merged.fixGolaExtraLabel, merged.fixGolaExtraRate,
+      merged.mouldingExtraLabel, merged.mouldingExtraRate,
+      cleanOrderId
+    );
+
+    recalculateAndUpdateOrderTotals(db, cleanOrderId);
+    return true;
+  });
+
+  // Add order payment
+  ipcMain.handle('addOrderPayment', (_event, orderId: number, amount: number, paymentDate: string, notes?: string) => {
+    assertLicensed();
+    const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
+    const cleanAmount = assertFiniteNumber(amount, 'Payment amount', { min: 0.01 });
+    const cleanDate = sanitizeText(paymentDate, 'Payment date', 50, true);
+    const cleanNotes = sanitizeText(notes || '', 'Payment notes', 200);
+
+    db.prepare(`
+      INSERT INTO payments (order_id, amount, payment_date, notes)
+      VALUES (?, ?, ?, ?)
+    `).run(cleanOrderId, cleanAmount, cleanDate, cleanNotes);
+
+    // Sum all payments and update order advance_paid & payment_status
+    const totals = db.prepare('SELECT SUM(amount) as total FROM payments WHERE order_id = ?').get(cleanOrderId) as any;
+    const finalAdvance = totals ? (totals.total || 0) : 0;
+
+    const order = db.prepare('SELECT total_value, payment_status FROM orders WHERE id = ?').get(cleanOrderId) as any;
+    const newStatus = (finalAdvance >= order.total_value && order.total_value > 0) ? 'paid' : order.payment_status;
+
+    db.prepare('UPDATE orders SET advance_paid = ?, payment_status = ? WHERE id = ?').run(
+      finalAdvance,
+      newStatus,
+      cleanOrderId
+    );
+
+    return true;
+  });
+
+  // Delete order payment
+  ipcMain.handle('deleteOrderPayment', (_event, paymentId: number) => {
+    assertLicensed();
+    const cleanPaymentId = assertPositiveInt(paymentId, 'Payment ID');
+    
+    const payment = db.prepare('SELECT order_id FROM payments WHERE id = ?').get(cleanPaymentId) as any;
+    if (!payment) return false;
+
+    db.prepare('DELETE FROM payments WHERE id = ?').run(cleanPaymentId);
+
+    const cleanOrderId = payment.order_id;
+    const totals = db.prepare('SELECT SUM(amount) as total FROM payments WHERE order_id = ?').get(cleanOrderId) as any;
+    const finalAdvance = totals ? (totals.total || 0) : 0;
+
+    const order = db.prepare('SELECT total_value, payment_status FROM orders WHERE id = ?').get(cleanOrderId) as any;
+    // Always recompute: paid only if payments fully cover the total; otherwise pending.
+    // Do NOT preserve old payment_status here — a deleted payment may un-cover a previously paid order.
+    const newStatus = (finalAdvance >= order.total_value && order.total_value > 0) ? 'paid' : 'pending';
+
+    db.prepare('UPDATE orders SET advance_paid = ?, payment_status = ? WHERE id = ?').run(
+      finalAdvance,
+      newStatus,
+      cleanOrderId
+    );
+
     return true;
   });
 }

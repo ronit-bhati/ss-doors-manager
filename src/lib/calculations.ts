@@ -66,7 +66,16 @@ interface SummaryItem {
 
 // Order totals
 // Totals are calculated by summing the costs (calculated_value * rate) of each line item.
-export function calculateOrderTotals(items: SummaryItem[]) {
+export function calculateOrderTotals(
+  items: SummaryItem[],
+  extras?: {
+    doorsExtraRate?: number;
+    chaukhatExtraRate?: number;
+    railingsExtraRate?: number;
+    fixGolaExtraRate?: number;
+    mouldingExtraRate?: number;
+  }
+) {
   const doorsSubtotal = items
     .filter((i) => i.item_type === 'door_window')
     .reduce((sum, i) => sum + i.calculated_value, 0);
@@ -107,9 +116,15 @@ export function calculateOrderTotals(items: SummaryItem[]) {
     .filter((i) => i.item_type === 'moulding')
     .reduce((sum, i) => sum + i.calculated_value * (i.rate || 0), 0);
 
+  const doorsExtraAmount = doorsSubtotal * (extras?.doorsExtraRate || 0);
+  const chaukhatExtraAmount = chaukhatSubtotal * (extras?.chaukhatExtraRate || 0);
+  const railingsExtraAmount = railingsSubtotal * (extras?.railingsExtraRate || 0);
+  const fixGolaExtraAmount = fixGolaSubtotal * (extras?.fixGolaExtraRate || 0);
+  const mouldingExtraAmount = mouldingSubtotal * (extras?.mouldingExtraRate || 0);
+
   return {
-    doorsSubtotal,    // always sqft
-    chaukhatSubtotal, // always running feet
+    doorsSubtotal,
+    chaukhatSubtotal,
     railingsSubtotal,
     fixGolaSubtotal,
     mouldingSubtotal,
@@ -118,6 +133,26 @@ export function calculateOrderTotals(items: SummaryItem[]) {
     railingsAmount,
     fixGolaAmount,
     mouldingAmount,
-    totalAmount: doorsAmount + chaukhatAmount + railingsAmount + fixGolaAmount + mouldingAmount
+    doorsExtraAmount,
+    chaukhatExtraAmount,
+    railingsExtraAmount,
+    fixGolaExtraAmount,
+    mouldingExtraAmount,
+    totalAmount:
+      doorsAmount + doorsExtraAmount +
+      chaukhatAmount + chaukhatExtraAmount +
+      railingsAmount + railingsExtraAmount +
+      fixGolaAmount + fixGolaExtraAmount +
+      mouldingAmount + mouldingExtraAmount
   };
+}
+
+export function formatDate(dateString: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }

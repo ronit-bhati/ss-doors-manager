@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, ChevronRight, User, FolderOpen } from 'lucide-react';
 import { ClientForm } from '../components/ClientForm.tsx';
+import { formatDate } from '../lib/calculations.ts';
 
 interface Client {
   id: number;
@@ -328,7 +329,7 @@ export function ClientsPage() {
                   <div>
                     <h1 className="page-title" style={{ fontSize: '1.25rem', fontFamily: 'var(--font-body)' }}>{client.name.toUpperCase()}</h1>
                     <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-body)', color: 'var(--color-text-muted)' }}>
-                      REGISTRATION ID: #{client.id} | DATE: {new Date(client.created_at).toLocaleDateString()}
+                      REGISTRATION ID: #{client.id} | DATE: {formatDate(client.created_at)}
                     </span>
                   </div>
                 </div>
@@ -399,7 +400,7 @@ export function ClientsPage() {
                       {orders.map((o) => (
                         <tr key={o.id}>
                           <td style={{ fontWeight: 700 }}>#{o.id}</td>
-                          <td>{new Date(o.order_date).toLocaleDateString()}</td>
+                          <td>{formatDate(o.order_date)}</td>
                           <td>
                             <span className={`badge badge-${o.order_status}`}>
                               {o.order_status.replace('_', ' ')}

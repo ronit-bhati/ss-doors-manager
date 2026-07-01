@@ -11,6 +11,16 @@ interface OrderSummaryProps {
   railingsAmount?: number;
   fixGolaAmount?: number;
   mouldingAmount?: number;
+  doorsExtraLabel?: string;
+  doorsExtraRate?: number;
+  chaukhatExtraLabel?: string;
+  chaukhatExtraRate?: number;
+  railingsExtraLabel?: string;
+  railingsExtraRate?: number;
+  fixGolaExtraLabel?: string;
+  fixGolaExtraRate?: number;
+  mouldingExtraLabel?: string;
+  mouldingExtraRate?: number;
   advancePaid?: number;
   paymentStatus?: string;
 }
@@ -26,10 +36,31 @@ export function OrderSummary({
   railingsAmount = 0,
   fixGolaAmount = 0,
   mouldingAmount = 0,
+  doorsExtraLabel = '',
+  doorsExtraRate = 0,
+  chaukhatExtraLabel = '',
+  chaukhatExtraRate = 0,
+  railingsExtraLabel = '',
+  railingsExtraRate = 0,
+  fixGolaExtraLabel = '',
+  fixGolaExtraRate = 0,
+  mouldingExtraLabel = '',
+  mouldingExtraRate = 0,
   advancePaid = 0,
   paymentStatus = 'pending'
 }: OrderSummaryProps) {
-  const totalAmount = doorsAmount + chaukhatAmount + railingsAmount + fixGolaAmount + mouldingAmount;
+  const doorsExtraAmount = doorsSubtotal * doorsExtraRate;
+  const chaukhatExtraAmount = chaukhatSubtotal * chaukhatExtraRate;
+  const railingsExtraAmount = railingsSubtotal * railingsExtraRate;
+  const fixGolaExtraAmount = fixGolaSubtotal * fixGolaExtraRate;
+  const mouldingExtraAmount = mouldingSubtotal * mouldingExtraRate;
+
+  const totalAmount =
+    doorsAmount + doorsExtraAmount +
+    chaukhatAmount + chaukhatExtraAmount +
+    railingsAmount + railingsExtraAmount +
+    fixGolaAmount + fixGolaExtraAmount +
+    mouldingAmount + mouldingExtraAmount;
 
   return (
     <div className="summary-panel animate-fade-in">
@@ -60,11 +91,23 @@ export function OrderSummary({
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{doorsSubtotal.toFixed(2)} SQFT</span>
             </div>
             <div className="summary-row">
-              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>Doors Total Cost:</span>
+              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                Doors Total Cost:
+              </span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                 ₹{doorsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+            {doorsExtraLabel && doorsExtraRate > 0 && (
+              <div className="summary-row">
+                <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                  Doors {doorsExtraLabel} (₹{doorsExtraRate}/sqft):
+                </span>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                  ₹{doorsExtraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)', margin: '0.25rem 0' }} />
           </>
         )}
@@ -76,11 +119,23 @@ export function OrderSummary({
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{chaukhatSubtotal.toFixed(2)} FT</span>
             </div>
             <div className="summary-row">
-              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>Chaukhats Total Cost:</span>
+              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                Chaukhats Total Cost:
+              </span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                 ₹{chaukhatAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+            {chaukhatExtraLabel && chaukhatExtraRate > 0 && (
+              <div className="summary-row">
+                <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                  Chaukhats {chaukhatExtraLabel} (₹{chaukhatExtraRate}/ft):
+                </span>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                  ₹{chaukhatExtraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)', margin: '0.25rem 0' }} />
           </>
         )}
@@ -92,11 +147,23 @@ export function OrderSummary({
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{railingsSubtotal.toFixed(2)} FT</span>
             </div>
             <div className="summary-row">
-              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>Railings Total Cost:</span>
+              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                Railings Total Cost:
+              </span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                 ₹{railingsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+            {railingsExtraLabel && railingsExtraRate > 0 && (
+              <div className="summary-row">
+                <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                  Railings {railingsExtraLabel} (₹{railingsExtraRate}/ft):
+                </span>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                  ₹{railingsExtraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)', margin: '0.25rem 0' }} />
           </>
         )}
@@ -108,11 +175,23 @@ export function OrderSummary({
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{fixGolaSubtotal.toFixed(2)} FT</span>
             </div>
             <div className="summary-row">
-              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>Fix Gola Total Cost:</span>
+              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                Fix Gola Total Cost:
+              </span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                 ₹{fixGolaAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+            {fixGolaExtraLabel && fixGolaExtraRate > 0 && (
+              <div className="summary-row">
+                <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                  Fix Gola {fixGolaExtraLabel} (₹{fixGolaExtraRate}/ft):
+                </span>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                  ₹{fixGolaExtraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)', margin: '0.25rem 0' }} />
           </>
         )}
@@ -124,11 +203,23 @@ export function OrderSummary({
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{mouldingSubtotal.toFixed(2)} FT</span>
             </div>
             <div className="summary-row">
-              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>Moulding Total Cost:</span>
+              <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                Moulding Total Cost:
+              </span>
               <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                 ₹{mouldingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
+            {mouldingExtraLabel && mouldingExtraRate > 0 && (
+              <div className="summary-row">
+                <span style={{ color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontSize: '0.725rem', fontWeight: 700 }}>
+                  Moulding {mouldingExtraLabel} (₹{mouldingExtraRate}/ft):
+                </span>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                  ₹{mouldingExtraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
             <div style={{ height: '1px', backgroundColor: 'var(--color-border)', margin: '0.25rem 0' }} />
           </>
         )}
@@ -149,7 +240,7 @@ export function OrderSummary({
           <>
             {advancePaid > 0 && (
               <div className="summary-row" style={{ marginTop: '0.25rem' }}>
-                <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>ADVANCE PAID:</span>
+                <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>TOTAL PAID:</span>
                 <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>
                   ₹{advancePaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>

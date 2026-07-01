@@ -4,7 +4,27 @@ import { app } from 'electron';
 
 let dbConnection: Database.Database | null = null;
 
+// Whitelist of known table and column names used in migrations.
+// Interpolating only from this set prevents SQL injection in schema migration code.
+const ALLOWED_TABLE_COLUMNS: Record<string, Set<string>> = {
+  orders: new Set([
+    'order_status', 'payment_status', 'advance_paid',
+    'railing_unit', 'fix_gola_unit', 'moulding_unit', 'wood_type',
+    'railings_subtotal', 'fix_gola_subtotal', 'moulding_subtotal',
+    'railings_amount', 'fix_gola_amount', 'moulding_amount',
+    'doors_extra_label', 'doors_extra_rate',
+    'chaukhat_extra_label', 'chaukhat_extra_rate',
+    'railings_extra_label', 'railings_extra_rate',
+    'fix_gola_extra_label', 'fix_gola_extra_rate',
+    'moulding_extra_label', 'moulding_extra_rate'
+  ])
+};
+
 function ensureColumn(db: Database.Database, table: string, column: string, definition: string): void {
+  // Guard: only allow known tables and columns to prevent injection via migration params
+  if (!ALLOWED_TABLE_COLUMNS[table]?.has(column)) {
+    throw new Error(`Migration safety: unknown table/column '${table}.${column}'`);
+  }
   const info = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (!info.some((col) => col.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
@@ -19,7 +39,7 @@ function runMigrations(db: Database.Database): void {
     .all() as Array<{ name: string }>;
   const tableNames = new Set(tableRows.map((row) => row.name));
 
-  if (tableNames.has('orders')) {
+    if (tableNames.has('orders')) {
     ensureColumn(db, 'orders', 'order_status', "TEXT DEFAULT 'pending'");
     ensureColumn(db, 'orders', 'payment_status', "TEXT DEFAULT 'pending'");
     ensureColumn(db, 'orders', 'advance_paid', 'REAL DEFAULT 0');
@@ -33,6 +53,16 @@ function runMigrations(db: Database.Database): void {
     ensureColumn(db, 'orders', 'railings_amount', 'REAL DEFAULT 0');
     ensureColumn(db, 'orders', 'fix_gola_amount', 'REAL DEFAULT 0');
     ensureColumn(db, 'orders', 'moulding_amount', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'doors_extra_label', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'doors_extra_rate', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'chaukhat_extra_label', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'chaukhat_extra_rate', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'railings_extra_label', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'railings_extra_rate', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'fix_gola_extra_label', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'fix_gola_extra_rate', 'REAL DEFAULT 0');
+    ensureColumn(db, 'orders', 'moulding_extra_label', "TEXT DEFAULT ''");
+    ensureColumn(db, 'orders', 'moulding_extra_rate', 'REAL DEFAULT 0');
   }
 }
 
@@ -87,6 +117,16 @@ export function initDatabase(): Database.Database {
       fix_gola_amount        REAL DEFAULT 0,
       moulding_amount        REAL DEFAULT 0,
       total_value            REAL DEFAULT 0,
+      doors_extra_label      TEXT DEFAULT '',
+      doors_extra_rate       REAL DEFAULT 0,
+      chaukhat_extra_label   TEXT DEFAULT '',
+      chaukhat_extra_rate    REAL DEFAULT 0,
+      railings_extra_label   TEXT DEFAULT '',
+      railings_extra_rate    REAL DEFAULT 0,
+      fix_gola_extra_label   TEXT DEFAULT '',
+      fix_gola_extra_rate    REAL DEFAULT 0,
+      moulding_extra_label   TEXT DEFAULT '',
+      moulding_extra_rate    REAL DEFAULT 0,
       created_at             TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -102,6 +142,14 @@ export function initDatabase(): Database.Database {
       calculated_value   REAL NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS payments (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id           INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      amount             REAL NOT NULL,
+      payment_date       TEXT NOT NULL,
+      notes              TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key    TEXT PRIMARY KEY,
       value  TEXT
@@ -110,6 +158,7 @@ export function initDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
     CREATE INDEX IF NOT EXISTS idx_orders_client_date ON orders(client_id, order_date DESC);
     CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
   `);
 
   // Run migrations to add any columns introduced in newer versions

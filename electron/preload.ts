@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // PDF Export
   exportOrderPDF: (orderId: number) => ipcRenderer.invoke('exportOrderPDF', orderId),
+  printOrder: (orderId: number) => ipcRenderer.invoke('printOrder', orderId),
   notifyPrintReady: (orderId: number) => ipcRenderer.invoke('printRouteReady', orderId),
 
   // Zoom

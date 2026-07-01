@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, FileText, Trash2, Plus, Printer } from 'lucide-react';
 import { DoorItemRow } from '../components/DoorItemRow.tsx';
 import { ChaukhatItemRow } from '../components/ChaukhatItemRow.tsx';
 import { OrderSummary } from '../components/OrderSummary.tsx';
@@ -85,6 +85,7 @@ export function OrderDetailPage() {
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showAddRowMenu, setShowAddRowMenu] = useState(false);
@@ -710,9 +711,9 @@ export function OrderDetailPage() {
               </span>
             </div>
             
-            <button className="btn btn-outline" onClick={handleExportPDF} disabled={pdfGenerating} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+            <button className="btn btn-outline" onClick={handleExportPDF} disabled={pdfGenerating || isPrinting} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
               <FileText size={16} />
-              <span>{pdfGenerating ? 'Exporting PDF...' : 'Export PDF Invoice'}</span>
+              <span>{pdfGenerating ? 'Exporting PDF...' : isPrinting ? 'Printing...' : 'Export PDF Invoice'}</span>
               <kbd style={{ marginLeft: '0.375rem', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-app)', color: 'var(--color-text-secondary)', fontSize: '0.65rem', padding: '0.05rem 0.25rem' }}>Ctrl+P</kbd>
             </button>
             
@@ -1807,8 +1808,39 @@ export function OrderDetailPage() {
               type="button"
               className="btn btn-outline"
               onClick={() => previewDialogRef.current?.close()}
+              disabled={pdfGenerating || isPrinting}
             >
               Close
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={async () => {
+                if (!order) return;
+                setIsPrinting(true);
+                setToastMessage('Preparing Printer...');
+                try {
+                  const result = await window.api.printOrder(order.id);
+                  if (result.success) {
+                    showToast('Sent to printer successfully');
+                    previewDialogRef.current?.close();
+                  } else if (result.error !== 'Cancelled or failed' && result.error !== 'Cancelled') {
+                    showToast(`Failed to print: ${result.error}`);
+                  } else {
+                    setToastMessage('');
+                  }
+                } catch (err: unknown) {
+                  console.error(err);
+                  showToast(`Error: ${(err as Error).message}`);
+                } finally {
+                  setIsPrinting(false);
+                }
+              }}
+              disabled={pdfGenerating || isPrinting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
+            >
+              <Printer size={16} />
+              <span>{isPrinting ? 'Printing...' : 'Direct Print'}</span>
             </button>
             <button
               type="button"
@@ -1834,7 +1866,7 @@ export function OrderDetailPage() {
                   setPdfGenerating(false);
                 }
               }}
-              disabled={pdfGenerating}
+              disabled={pdfGenerating || isPrinting}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}
             >
               <FileText size={16} />

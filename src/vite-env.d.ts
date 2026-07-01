@@ -77,6 +77,7 @@ interface Window {
     activateApp: (code: string) => Promise<{ success: boolean; error?: string }>;
 
     exportOrderPDF: (orderId: number) => Promise<{ success: boolean; path?: string; error?: string }>;
+    printOrder: (orderId: number) => Promise<{ success: boolean; error?: string }>;
     notifyPrintReady: (orderId: number) => Promise<boolean>;
 
     setZoomFactor: (factor: number) => void;

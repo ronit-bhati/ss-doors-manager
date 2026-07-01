@@ -129,4 +129,70 @@ export function registerPdfHandlers() {
       return { success: false, error: errorMessage(error) };
     }
   });
+
+  ipcMain.handle('printOrder', async (_event, orderId: number) => {
+    assertLicensed();
+    const cleanOrderId = assertPositiveInt(orderId, 'Order ID');
+
+    // 1. Create a hidden window
+    const printWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        preload: path.join(__dirname, 'preload.mjs'),
+      }
+    });
+    printWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+    const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+    const appRoot = process.env.APP_ROOT || path.join(__dirname, '..');
+    const RENDERER_DIST = path.join(appRoot, 'dist');
+
+    // 2. Load the print route in the hidden window
+    try {
+      const readyPromise = waitForPrintReady(printWindow, cleanOrderId);
+
+      if (VITE_DEV_SERVER_URL) {
+        await printWindow.loadURL(`${VITE_DEV_SERVER_URL}#/print/order/${cleanOrderId}`);
+      } else {
+        const indexPath = path.join(RENDERER_DIST, 'index.html');
+        await printWindow.loadFile(indexPath, { hash: `print/order/${cleanOrderId}` });
+      }
+
+      // 3. Wait until the React print route has fetched IPC data and rendered the invoice.
+      await readyPromise;
+
+      // 4. Print directly
+      return new Promise((resolve) => {
+        printWindow.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            pageSize: 'A4',
+            margins: {
+              marginType: 'custom',
+              top: 0.4,
+              bottom: 0.4,
+              left: 0.4,
+              right: 0.4
+            }
+          },
+          (success, failureReason) => {
+            printWindow.destroy();
+            if (success) {
+              resolve({ success: true });
+            } else {
+              resolve({ success: false, error: failureReason || 'Cancelled or failed' });
+            }
+          }
+        );
+      });
+    } catch (error: unknown) {
+      console.error('Direct print failed:', error);
+      printWindow.destroy();
+      return { success: false, error: errorMessage(error) };
+    }
+  });
 }
